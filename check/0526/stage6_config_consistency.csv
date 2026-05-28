@@ -1,0 +1,7 @@
+﻿key,expanding,rolling_48m,consistent
+TE_FIXED,0.06,0.06,True
+IND_DEV,0.03,0.03,True
+SGL_DEV,0.015,0.015,True
+TOPN,50.0,50.0,True
+turnover_lambda,0.005,0.005,True
+max_solve_seconds,30.0,30.0,True

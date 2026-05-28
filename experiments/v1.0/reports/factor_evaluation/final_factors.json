@@ -1,0 +1,49 @@
+{
+  "final_factors": [
+    "amihud",
+    "rev_yoy",
+    "ep_ttm",
+    "cfp",
+    "gross_margin",
+    "mom_12_1"
+  ],
+  "excluded": [
+    "turn_20d",
+    "q_roe",
+    "holder_chg",
+    "roa",
+    "roe",
+    "ivol_60d",
+    "vol_60d",
+    "max_ret",
+    "np_yoy",
+    "roe_delta",
+    "margin_ratio",
+    "asset_turn",
+    "short_ratio",
+    "fcfp",
+    "mom_6_1",
+    "ret_1m",
+    "large_net_inflow",
+    "sp_ttm",
+    "bp",
+    "accrual",
+    "leverage"
+  ],
+  "stability_weights": {
+    "amihud": 1.0,
+    "rev_yoy": 1.0,
+    "ep_ttm": 1.0,
+    "cfp": 1.0,
+    "gross_margin": 1.0,
+    "mom_12_1": 1.0
+  },
+  "_metadata": {
+    "run_id": "unset",
+    "generated_at": "2026-05-20T13:36:14Z",
+    "git_commit": "0f7a71f",
+    "factor_summary_md5": "37e55972412a",
+    "n_final": 6,
+    "n_excluded": 21
+  }
+}

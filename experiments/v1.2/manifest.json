@@ -1,0 +1,41 @@
+{
+  "version": "v1.2",
+  "created_at": "2026-05-26",
+  "git_commit": "7423f1e",
+  "description": "加入 rev_acceleration（营收增速加速度）因子，evaluate 阶段同步纳入 high_52w_v2，共 18 因子。IC_IR 主流水线 IR 从 0.341 升至 0.402，Ridge v2 流水线 IR 从 0.483 升至 0.503（首次突破 0.5 目标）。",
+  "factors": {
+    "n_final": 18,
+    "new_vs_v1.1": ["rev_acceleration"],
+    "auto_added_by_evaluate": ["high_52w_v2"],
+    "final_factors_json": "reports/factor_evaluation/final_factors.json"
+  },
+  "ic_ir_pipeline": {
+    "signal": "IC_IR weighted",
+    "lambda": 0.005,
+    "validation_ir": 0.402,
+    "excess_return_pct": 2.45,
+    "excess_mdd_pct": 7.75,
+    "turnover_valid_pct": 918.0,
+    "results_dir": "experiments/v1.2/results/ic_ir/"
+  },
+  "ridge_pipeline": {
+    "signal": "Ridge v2 (alpha=5000, excess_return target)",
+    "lambda": 0.005,
+    "validation_ir": 0.503,
+    "excess_return_pct": 2.99,
+    "excess_mdd_pct": 7.96,
+    "turnover_valid_pct": 981.0,
+    "results_dir": "experiments/v1.2/results/ridge_lam_0050/"
+  },
+  "vs_v1.1": {
+    "ic_ir_pipeline_ir_change": "+0.061 (0.341 -> 0.402)",
+    "ridge_pipeline_ir_change": "+0.020 (0.483 -> 0.503)",
+    "target_met": true,
+    "target_ir": 0.5
+  },
+  "known_issues": [
+    "rev_acceleration 未注册到 DEFAULT_FACTOR_GROUPS，在因子归因中被归入 residual",
+    "high_52w_v2 shift_test lead_warn（lead_ratio 未超过 2x 门槛，符合要求）",
+    "Brinson BHB 验证偏差约 1.65e-03（非阻塞性）"
+  ]
+}

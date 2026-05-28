@@ -1,0 +1,45 @@
+{
+  "version": "1.1",
+  "date": "2026-05-25",
+  "git": {
+    "commit": "7423f1e",
+    "branch": "feature/expand-train-2012",
+    "worktree_status": "dirty"
+  },
+  "sample_split": {
+    "train": "2012-01-01 ~ 2020-12-31",
+    "valid": "2021-01-01 ~ 2022-12-31",
+    "test": "2023-01-01 ~ 2025-12-31"
+  },
+  "configuration": {
+    "signal": "ridge_v2_excess_return",
+    "ridge_alpha": 5000.0,
+    "te_target_annual": 0.06,
+    "single_max_dev": 0.015,
+    "industry_max_dev": 0.03,
+    "topn": 50,
+    "turnover_lambda": 0.005
+  },
+  "validation_metrics": {
+    "annual_excess_return": 0.0277,
+    "information_ratio": 0.483,
+    "excess_max_drawdown": 0.0398,
+    "realized_tracking_error": 0.0573,
+    "monthly_win_rate": 0.3913,
+    "annual_two_way_turnover": 10.04,
+    "l1_strict_solutions": "24/24"
+  },
+  "test_set_discipline": {
+    "source_of_truth": "docs/check/test_set_runs.json and docs/check/test_set_run_log.md",
+    "consumed_runs": 0,
+    "remaining_runs": 2,
+    "test_set_reused_for_v1_1": false
+  },
+  "evidence_files": [
+    "experiments/ridge_signal/results/comparison_report.md",
+    "experiments/ridge_signal/results/backtest/comparison_backtest_report.md",
+    "experiments/te_grid/results/comparison_report.md",
+    "experiments/turnover_lambda_grid/results/comparison_report.md",
+    "experiments/v1.1/config_snapshot.py"
+  ]
+}

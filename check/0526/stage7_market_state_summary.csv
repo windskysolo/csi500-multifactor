@@ -1,0 +1,17 @@
+﻿source_id,state_type,state,n_months,excess_sum,excess_mean,win_rate
+pipeline_b_frozen_replay,benchmark_direction,benchmark_down,11,0.09181220437545978,0.008346564034132708,0.6363636363636364
+pipeline_b_frozen_replay,benchmark_direction,benchmark_up,12,-0.05589515004215284,-0.0046579291701794034,0.16666666666666666
+rolling_48m_replay,benchmark_direction,benchmark_down,11,0.08344160956252211,0.007585600869320192,0.7272727272727273
+rolling_48m_replay,benchmark_direction,benchmark_up,12,-0.005138633107976354,-0.0004282194256646961,0.5
+pipeline_b_frozen_replay,benchmark_volatility,high_vol,12,0.04483642376132646,0.003736368646777205,0.4166666666666667
+pipeline_b_frozen_replay,benchmark_volatility,low_vol,11,-0.008919369428019519,-0.0008108517661835926,0.36363636363636365
+rolling_48m_replay,benchmark_volatility,high_vol,12,0.019905236555115002,0.0016587697129262502,0.5833333333333334
+rolling_48m_replay,benchmark_volatility,low_vol,11,0.058397739899430756,0.005308885445402796,0.6363636363636364
+pipeline_b_frozen_replay,direction_x_volatility,benchmark_down_high_vol,8,0.07658326092481405,0.009572907615601756,0.625
+pipeline_b_frozen_replay,direction_x_volatility,benchmark_down_low_vol,3,0.015228943450645738,0.005076314483548579,0.6666666666666666
+pipeline_b_frozen_replay,direction_x_volatility,benchmark_up_high_vol,4,-0.031746837163487585,-0.007936709290871896,0.0
+pipeline_b_frozen_replay,direction_x_volatility,benchmark_up_low_vol,8,-0.024148312878665257,-0.003018539109833157,0.25
+rolling_48m_replay,direction_x_volatility,benchmark_down_high_vol,8,0.059005616380316206,0.007375702047539526,0.75
+rolling_48m_replay,direction_x_volatility,benchmark_down_low_vol,3,0.024435993182205906,0.008145331060735303,0.6666666666666666
+rolling_48m_replay,direction_x_volatility,benchmark_up_high_vol,4,-0.039100379825201204,-0.009775094956300301,0.25
+rolling_48m_replay,direction_x_volatility,benchmark_up_low_vol,8,0.03396174671722485,0.004245218339653106,0.625

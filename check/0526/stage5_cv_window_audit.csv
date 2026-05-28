@@ -1,0 +1,11 @@
+﻿source_id,mode,fold,val_start,val_end,cutoff,window_start,n_train_dates,min_train_date,max_train_date,n_val_dates,min_val_date,max_train_date_lt_min_val,max_train_date_le_cutoff,max_train_label_exit_date,max_train_label_exit_lt_min_val
+expanding_ridge_current_signal,expanding,1,2015-01-01,2015-12-31,2014-11-01,,34,2012-01-31,2014-10-31,12,2015-01-30,True,True,2014-12-01,True
+expanding_ridge_current_signal,expanding,2,2016-01-01,2016-12-31,2015-11-01,,46,2012-01-31,2015-10-30,12,2016-01-29,True,True,2015-12-01,True
+expanding_ridge_current_signal,expanding,3,2017-01-01,2017-12-31,2016-11-01,,58,2012-01-31,2016-10-31,12,2017-01-26,True,True,2016-12-01,True
+expanding_ridge_current_signal,expanding,4,2018-01-01,2018-12-31,2017-11-01,,70,2012-01-31,2017-10-31,12,2018-01-31,True,True,2017-12-01,True
+expanding_ridge_current_signal,expanding,5,2019-01-01,2019-12-31,2018-11-01,,82,2012-01-31,2018-10-31,12,2019-01-31,True,True,2018-12-03,True
+rolling_48m_current_signal,rolling_48m,1,2015-01-01,2015-12-31,2014-11-01,2010-11-01,34,2012-01-31,2014-10-31,12,2015-01-30,True,True,2014-12-01,True
+rolling_48m_current_signal,rolling_48m,2,2016-01-01,2016-12-31,2015-11-01,2011-11-01,46,2012-01-31,2015-10-30,12,2016-01-29,True,True,2015-12-01,True
+rolling_48m_current_signal,rolling_48m,3,2017-01-01,2017-12-31,2016-11-01,2012-11-01,48,2012-11-30,2016-10-31,12,2017-01-26,True,True,2016-12-01,True
+rolling_48m_current_signal,rolling_48m,4,2018-01-01,2018-12-31,2017-11-01,2013-11-01,48,2013-11-29,2017-10-31,12,2018-01-31,True,True,2017-12-01,True
+rolling_48m_current_signal,rolling_48m,5,2019-01-01,2019-12-31,2018-11-01,2014-11-01,48,2014-11-28,2018-10-31,12,2019-01-31,True,True,2018-12-03,True

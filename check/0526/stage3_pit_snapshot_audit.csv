@@ -1,0 +1,9 @@
+﻿table,rebalance_date,n_rows,future_pit_rows,future_end_rows,max_pit_date,max_end_date,status,note
+financial_pit,2021-01-29,10,0,0,2020-10-31,2020-09-30,PASS,loader snapshot requires pit_date <= T and end_date < T
+indicator_pit,2021-01-29,10,0,0,2020-10-31,2020-09-30,PASS,loader snapshot requires pit_date <= T and end_date < T
+financial_pit,2021-12-31,10,0,0,2021-10-30,2021-09-30,PASS,loader snapshot requires pit_date <= T and end_date < T
+indicator_pit,2021-12-31,10,0,0,2021-10-30,2021-09-30,PASS,loader snapshot requires pit_date <= T and end_date < T
+financial_pit,2022-06-30,10,0,0,2022-04-30,2022-03-31,PASS,loader snapshot requires pit_date <= T and end_date < T
+indicator_pit,2022-06-30,10,0,0,2022-04-30,2022-03-31,PASS,loader snapshot requires pit_date <= T and end_date < T
+financial_pit,2022-12-30,10,0,0,2022-10-31,2022-09-30,PASS,loader snapshot requires pit_date <= T and end_date < T
+indicator_pit,2022-12-30,10,0,0,2022-10-31,2022-09-30,PASS,loader snapshot requires pit_date <= T and end_date < T

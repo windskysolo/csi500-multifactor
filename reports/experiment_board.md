@@ -1,0 +1,12 @@
+# Experiment Board
+
+Generated : 2026-05-27 14:47 UTC
+Scope     : `train_valid`
+Thresholds: IR ≥ 0.5 · Excess MDD ≤ 10% · Annual Turnover 500–1500%
+
+| run_id                                                | role                 | experiment_id                        | signal_method | training_mode | window_months | te_target_pct | turnover_lambda | topn | IR    | excess_return_pct | excess_max_drawdown_pct | tracking_error_pct | monthly_win_rate_pct | annual_turnover_pct | ir_pass | mdd_pass | to_pass | status   |
+| ----------------------------------------------------- | -------------------- | ------------------------------------ | ------------- | ------------- | ------------- | ------------- | --------------- | ---- | ----- | ----------------- | ----------------------- | ------------------ | -------------------- | ------------------- | ------- | -------- | ------- | -------- |
+| 20260527_142056__challenger_rolling48_te6_lam0050     | challenger/rolling48 | challenger_rolling48_te6_lam0050     | ridge         | rolling       | 48.0          | 6.0           | 0.005           | 50   | 1.489 | 8.63              | -5.82                   | 5.8                | 56.5                 | 1002.0              | ✅       | ✅        | ✅       | finished |
+| 20260527_142318__challenger_rolling60_te6_lam0050     | challenger/rolling60 | challenger_rolling60_te6_lam0050     | ridge         | rolling       | 60.0          | 6.0           | 0.005           | 50   | 1.176 | 6.87              | -6.73                   | 5.84               | 47.8                 | 975.0               | ✅       | ✅        | ✅       | finished |
+| 20260527_141843__challenger_rolling36_te6_lam0050     | challenger/rolling36 | challenger_rolling36_te6_lam0050     | ridge         | rolling       | 36.0          | 6.0           | 0.005           | 50   | 0.966 | 5.8               | -8.38                   | 6.0                | 52.2                 | 1002.0              | ✅       | ✅        | ✅       | finished |
+| 20260527_141545__baseline_expanding_ridge_te6_lam0050 | mainline             | baseline_expanding_ridge_te6_lam0050 | ridge         | expanding     | —             | 6.0           | 0.005           | 50   | 0.408 | 2.44              | -8.16                   | 5.97               | 43.5                 | 974.0               | ❌       | ✅        | ✅       | finished |

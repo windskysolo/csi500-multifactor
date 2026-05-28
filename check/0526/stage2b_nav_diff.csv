@@ -1,0 +1,6 @@
+﻿run_id,comparison,aligned_rows,max_abs_strategy_diff,max_abs_benchmark_diff,max_abs_excess_nav_diff,first_diff_date
+rebuild_01,current_rebuild_vs_existing_pipeline_b,485,4.912514839361393e-12,0.0,4.426237154575574e-12,
+rebuild_02,current_rebuild_vs_existing_pipeline_b,485,4.912514839361393e-12,0.0,4.426237154575574e-12,
+rebuild_03,current_rebuild_vs_existing_pipeline_b,485,4.912514839361393e-12,0.0,4.426237154575574e-12,
+rebuild_02,rebuild_02_vs_rebuild_01,485,0.0,0.0,0.0,
+rebuild_03,rebuild_03_vs_rebuild_01,485,0.0,0.0,0.0,

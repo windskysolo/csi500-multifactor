@@ -1,0 +1,35 @@
+{
+  "version": "1.0",
+  "date": "2026-05-23",
+  "git": {
+    "commit": "20f3641",
+    "branch": "feature/expand-train-2012",
+    "commit_message": "unknown"
+  },
+  "config": {
+    "TRAIN_START": "2012-01-01",
+    "TRAIN_END": "2020-12-31",
+    "VALID_START": "2021-01-01",
+    "VALID_END": "2022-12-31",
+    "TEST_START": "2023-01-01",
+    "TEST_END": "2025-12-31",
+    "MARKET_START": "2011-01-01"
+  },
+  "notes": "基线：训练期2016-2021，10个核心因子，reports为旧口径产物",
+  "files_saved": [
+    "alt_data_coverage_report.md",
+    "analysis_v2_results.md",
+    "data_expansion_probe_2010_2025.md",
+    "processed_coverage_report.md",
+    "factor_evaluation\\factor_correlation.csv",
+    "factor_evaluation\\factor_evaluation_report.md",
+    "factor_evaluation\\factor_overview.csv",
+    "factor_evaluation\\factor_summary.csv",
+    "factor_evaluation\\final_factors.json",
+    "factor_evaluation\\ic_result.csv",
+    "factor_evaluation\\quintile_summary.csv",
+    "factor_evaluation\\seg_ic_ir.csv",
+    "factor_evaluation\\shift_result.csv",
+    "factor_evaluation\\valid_comparison.csv"
+  ]
+}

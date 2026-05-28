@@ -1,0 +1,9 @@
+﻿path,needle,found
+src/data/loader.py,pit_date <= rebalance_date,True
+src/data/loader.py,end_date < rebalance_date,True
+src/data/loader.py,"drop_duplicates(""ts_code"", keep=""last"")",True
+src/factors/preprocess.py,MAD 法横截面去极值,True
+src/factors/preprocess.py,仅用 T 日横截面计算边界,True
+src/factors/preprocess.py,log(自由流通市值),True
+scripts/csv_to_parquet.py,"raw[""pit_date""] = raw[""f_ann_date""].fillna(raw[""ann_date""])",True
+scripts/csv_to_parquet.py,pit_date 取三表最大值,True

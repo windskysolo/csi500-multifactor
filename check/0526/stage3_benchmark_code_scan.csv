@@ -1,0 +1,52 @@
+﻿path,line_no,suspicious_close_benchmark_candidate,line
+src/backtest/engine.py,71,False,benchmark_nav:   pd.Series      # 基准 NAV（起点=1.0，同索引）
+src/backtest/engine.py,72,False,excess_nav:      pd.Series      # nav / benchmark_nav
+src/backtest/engine.py,147,False,从 index_quote.parquet 获取回测区间内的所有交易日（已排序）。
+src/backtest/engine.py,155,False,"iq = pd.read_parquet(cfg.DATA_PROC / ""index_quote.parquet"")"
+src/backtest/engine.py,254,False,def _load_benchmark_nav(
+src/backtest/engine.py,261,False,优先使用 index_quote.parquet 中的 nav 列（全收益，已含分红再投资）；
+src/backtest/engine.py,270,False,KeyError:   index_quote.parquet 无 nav/close 列
+src/backtest/engine.py,273,False,"iq = pd.read_parquet(cfg.DATA_PROC / ""index_quote.parquet"")"
+src/backtest/engine.py,278,False,"""index_quote.parquet 缺少 nav 列（全收益指数），不允许降级使用 close（价格指数）。"""
+src/backtest/engine.py,284,False,"f""index_quote.parquet 缺少 nav/close 列，实际列：{iq.columns.tolist()}"""
+src/backtest/engine.py,596,False,"benchmark_nav = _load_benchmark_nav(backtest_start, backtest_end)"
+src/backtest/engine.py,599,False,"nav_aligned, bench_aligned = nav_series.align(benchmark_nav, join=""inner"")"
+src/backtest/engine.py,622,False,"benchmark_nav  = bench_aligned,"
+src/evaluation/ic_analysis.py,220,False,数据依赖：daily_quote.open_adj；超额模式另需 index_quote.parquet 的 nav 列。
+src/evaluation/ic_analysis.py,232,False,基准数据来自 index_quote.parquet 的 nav 列（全收益）。
+src/evaluation/ic_analysis.py,274,False,"iq = pd.read_parquet(cfg.DATA_PROC / ""index_quote.parquet"")"
+src/evaluation/ic_analysis.py,276,False,"log.warning(""index_quote.parquet 缺少 nav 列，benchmark_code=%s 已忽略"", benchmark_code)"
+src/factors/alt_factors.py,80,False,"iq = pd.read_parquet(cfg.DATA_PROC / ""index_quote.parquet"")"
+src/factors/financial_factors.py,686,False,"iq        = pd.read_parquet(cfg.DATA_PROC / ""index_quote.parquet"")"
+src/factors/price_factors.py,14,False,- 所有窗口用实际交易日序列（来自 index_quote），禁止用 pandas 的 'NB'
+src/factors/price_factors.py,75,False,返回全市场实际交易日序列（来自 index_quote 的日期索引）。
+src/factors/price_factors.py,78,False,index_quote 仅 2430 行，读取速度极快。
+src/factors/price_factors.py,80,False,"iq = pd.read_parquet(cfg.DATA_PROC / ""index_quote.parquet"")"
+src/factors/price_factors.py,380,False,数据依赖：daily_quote.ret + index_quote.index_ret
+src/factors/price_factors.py,397,False,"iq = pd.read_parquet(cfg.DATA_PROC / ""index_quote.parquet"")[""index_ret""]"
+scripts/build_data_quality_notebook.py,138,False,"""index_quote.parquet"": {"
+scripts/build_data_quality_notebook.py,641,False,"index_quote = read_table(""index_quote.parquet"").sort_values(""trade_date"").reset_index(drop=True)"
+scripts/build_data_quality_notebook.py,642,False,"nav_recalc = (1 + index_quote[""index_ret""]).cumprod()"
+scripts/build_data_quality_notebook.py,644,False,"{""check"": ""index_ret_equals_pct_chg_div_100"", ""value"": max_abs_diff(index_quote[""index_ret""], index_quote[""pct_chg""] / 100), ""threshold"": ""<= 1e-12 expected""},"
+scripts/build_data_quality_notebook.py,645,False,"{""check"": ""nav_equals_cumprod_1_plus_index_ret"", ""value"": max_abs_diff(index_quote[""nav""], nav_recalc), ""threshold"": ""small tolerance""},"
+scripts/build_data_quality_notebook.py,646,False,"{""check"": ""date_min"", ""value"": index_quote[""trade_date""].min(), ""threshold"": f"">= {cfg.MARKET_START.date()}""},"
+scripts/build_data_quality_notebook.py,647,False,"{""check"": ""date_max"", ""value"": index_quote[""trade_date""].max(), ""threshold"": f""<= {cfg.MARKET_END.date()}""},"
+scripts/build_data_quality_notebook.py,648,False,"{""check"": ""non_positive_nav_rows"", ""value"": int((index_quote[""nav""] <= 0).sum()), ""threshold"": ""0 expected""},"
+scripts/build_data_quality_notebook.py,964,False,- `index_quote.parquet` 的源数据确认为中证500全收益指数，而不是价格指数；
+scripts/csv_to_parquet.py,15,False,M1(daily_quote) → M2(daily_basic) → M3(index_quote) → M4(industry)
+scripts/csv_to_parquet.py,378,False,# M3：基准指数 → index_quote.parquet
+scripts/csv_to_parquet.py,381,False,def process_index_quote() -> None:
+scripts/csv_to_parquet.py,391,False,"log.info(""=== M3: index_quote ==="")"
+scripts/csv_to_parquet.py,432,False,"_save_parquet(df, cfg.DATA_PROC / ""index_quote.parquet"", ""M3"")"
+scripts/csv_to_parquet.py,1915,False,"(""M3  index_quote"",      cfg.DATA_PROC / ""index_quote.parquet"",       ""trade_date"",      [""index_ret"", ""nav""]),"
+scripts/csv_to_parquet.py,2010,False,"""index_quote.parquet 行数 > 2000"","
+scripts/csv_to_parquet.py,2011,False,"cfg.DATA_PROC / ""index_quote.parquet"","
+scripts/csv_to_parquet.py,2061,False,"""index"":       [process_index_quote],"
+scripts/run_backtest.py,199,False,"""benchmark"":   result_v1.benchmark_nav,"
+scripts/run_pipeline.py,148,False,"cfg.DATA_PROC / ""index_quote.parquet"","
+scripts/run_test_pipeline.py,565,False,"""benchmark"":   result_v1.benchmark_nav,"
+experiments/ridge_rolling/run_rolling_experiment.py,318,False,"""benchmark"": result_valid.benchmark_nav,"
+experiments/ridge_signal/run_ridge_backtest.py,652,False,"""benchmark"": result_v1.benchmark_nav,"
+experiments/te_grid/run_te_grid.py,373,False,"""benchmark"": result_v2.benchmark_nav,"
+experiments/turnover_lambda_grid/run_turnover_lambda_grid.py,411,False,"""benchmark"": result_v2.benchmark_nav,"
+experiments/turnover_lambda_grid/run_turnover_lambda_grid.py,418,False,"""benchmark"": result_train.benchmark_nav,"

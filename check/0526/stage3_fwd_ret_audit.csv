@@ -1,0 +1,7 @@
+﻿check,value,status,note
+fwd_ret_shape,131x1329,INFO,
+fwd_ret_date_min,2012-01-31,INFO,
+fwd_ret_date_max,2022-11-30,INFO,
+fwd_index_subset_of_index_member_rebalance_dates,True,PASS,
+sample_factor_dates_cover_fwd_dates,True,PASS,sample=data/processed/factor_panels/accrual.parquet
+labels_exit_after_valid_end_count,1,WARN,这些标签跨过 VALID_END；本审计不读取对应区间价格手工复算。

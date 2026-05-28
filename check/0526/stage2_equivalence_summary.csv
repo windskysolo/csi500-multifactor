@@ -1,0 +1,4 @@
+﻿source_id,comparison,old_nav_path,new_rows,old_rows,aligned_rows,max_abs_strategy_diff,max_abs_benchmark_diff,max_abs_excess_nav_diff,first_diff_date
+pipeline_b_lam0050,existing_weights_current_engine_vs_existing_nav,experiments/turnover_lambda_grid/results/lam_0050/backtest_nav_valid.parquet,485,485,485,8.881784197001252e-16,0.0,8.881784197001252e-16,
+rolling_48m,existing_weights_current_engine_vs_existing_nav,experiments/ridge_rolling/results/rolling_48m/backtest_nav_valid.parquet,485,485,485,1.1102230246251565e-15,0.0,1.3322676295501878e-15,
+pipeline_b_lam0050,rebuilt_expanding_current_optimizer_vs_existing_nav,experiments/turnover_lambda_grid/results/lam_0050/backtest_nav_valid.parquet,485,485,485,0.045070126318975445,0.0,0.04159166168674289,2021-01-04

@@ -1,0 +1,2 @@
+﻿comparison,n_months,mean_monthly_diff,std_monthly_diff,sum_diff,rolling_better_months,rolling_better_rate,paired_t_stat,paired_t_p_value,wilcoxon_stat,wilcoxon_p_value,pipeline_monthly_ir_sqrt12,rolling_monthly_ir_sqrt12,monthly_ir_diff_sqrt12
+rolling_48m_replay_minus_pipeline_b_frozen_replay,23,0.0018428661791842964,0.010002653919718824,0.04238592212123882,14,0.6086956521739131,0.8835730783363298,0.38648068776574174,114.0,0.481952428817749,0.36049953664671053,0.7334466556774654,0.37294711903075484

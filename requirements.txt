@@ -1,0 +1,37 @@
+# 中证500多因子指数增强 — 核心依赖
+# Python >= 3.10
+#
+# 安装命令：pip install -r requirements.txt
+#
+# cvxpy 推荐求解器（任选其一，CLARABEL 为默认）：
+#   pip install clarabel    # 推荐，cvxpy >= 1.4 内置
+#   pip install ecos        # 备用
+#   pip install osqp        # 备用
+#   pip install scs         # 备用
+
+# ---------- 数据处理 ----------
+pandas>=2.0
+numpy
+pyarrow          # Parquet 读写
+scipy            # 统计检验（spearmanr、t 检验等）
+statsmodels      # 因子回归、中性化（OLS）
+
+# ---------- 机器学习 & 优化 ----------
+scikit-learn     # LedoitWolf 协方差收缩估计
+cvxpy>=1.4       # 组合优化（二次规划）
+
+# ---------- 数据源 ----------
+tinyshare        # TinyShare SDK（兼容 Tushare Pro 风格接口，需配置 TINYSHARE_TOKEN）
+
+# ---------- 可视化 ----------
+matplotlib
+plotly
+
+# ---------- 探索环境 ----------
+jupyterlab
+tqdm             # 进度条
+joblib           # 并行计算（可选）
+
+# ---------- 工程 ----------
+nbformat         # notebook 程序化构建（scripts/build_data_quality_notebook.py）
+pytest           # 单元测试

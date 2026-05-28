@@ -1,0 +1,11 @@
+﻿source_id,month_end,excess_drawdown,is_underwater
+pipeline_b_frozen_replay,2022-11-30,-0.037137846096383265,True
+pipeline_b_frozen_replay,2021-12-31,-0.03633706590880714,True
+pipeline_b_frozen_replay,2021-11-30,-0.03220927452082789,True
+pipeline_b_frozen_replay,2021-10-31,-0.029804073199484415,True
+pipeline_b_frozen_replay,2021-05-31,-0.02914858674449261,True
+rolling_48m_replay,2022-11-30,-0.04303252692511017,True
+rolling_48m_replay,2021-12-31,-0.03448092697717009,True
+rolling_48m_replay,2022-12-31,-0.028246629047942617,True
+rolling_48m_replay,2021-10-31,-0.028152288351209087,True
+rolling_48m_replay,2021-02-28,-0.025562997566298762,True

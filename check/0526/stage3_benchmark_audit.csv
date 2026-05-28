@@ -1,0 +1,3 @@
+﻿source_id,nav_path,index_quote_has_nav,index_quote_columns,nav_file_benchmark_rows,aligned_rows,max_abs_diff_vs_index_nav_normalized,nav_file_benchmark_return,index_nav_return_same_span,span_start,span_end
+pipeline_b_lam0050,experiments/turnover_lambda_grid/results/lam_0050/backtest_nav_valid.parquet,True,"[""close"", ""pct_chg"", ""index_ret"", ""nav""]",485,485,0.0,-0.06618140505714964,-0.06618140505714964,2021-01-04,2022-12-30
+rolling_48m,experiments/ridge_rolling/results/rolling_48m/backtest_nav_valid.parquet,True,"[""close"", ""pct_chg"", ""index_ret"", ""nav""]",485,485,0.0,-0.06618140505714964,-0.06618140505714964,2021-01-04,2022-12-30

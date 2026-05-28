@@ -1,0 +1,76 @@
+﻿# 迁移前状态快照 - 2026-05-27
+# 来源: e:\Acoding\Project\500
+# 目标: e:\Acoding\Project\500 improve
+
+## 关键 data/processed/ 产物
+  analyst_rc_pit.parquet  37995.1 KB
+  attribution_brinson.png  183.9 KB
+  attribution_factor.png  233.5 KB
+  attribution_metadata.json  1.4 KB
+  attribution_nav_reconciliation.parquet  10 KB
+  backtest_metrics.parquet  2.8 KB
+  backtest_nav.parquet  20.3 KB
+  backtest_plots.png  260.3 KB
+  backtest_trades_v1.parquet  8.9 KB
+  backtest_trades_v2.parquet  8.9 KB
+  backtest_weights_v1.parquet  389.1 KB
+  backtest_weights_v2.parquet  467.5 KB
+  block_trade.parquet  4317.4 KB
+  brinson_attribution.parquet  61.3 KB
+  brinson_industry_attr_v1.parquet  33.7 KB
+  brinson_industry_attr_v2.parquet  35.2 KB
+  brinson_period_summary.parquet  9.7 KB
+  brinson_summary_v1.parquet  7.3 KB
+  brinson_summary_v2.parquet  7.3 KB
+  composite_signal_equal.parquet  1308.3 KB
+  composite_signal_ic_ir.parquet  1308.3 KB
+  composite_signal_metadata.json  0.8 KB
+  cyq_perf.parquet  28780.7 KB
+  daily_basic.parquet  296924.1 KB
+  daily_quote.parquet  226085.7 KB
+  dividend_pit.parquet  116.3 KB
+  factor_attribution.parquet  13 KB
+  factor_attr_period_summary.parquet  14.5 KB
+  factor_attr_v2.parquet  9.1 KB
+  factor_panel_diagnostics.parquet  46.4 KB
+  factor_summary_v2.parquet  10.9 KB
+  financial_pit.parquet  23750.9 KB
+  fina_mainbz_raw.parquet  12464.6 KB
+  fwd_ret_panel.meta.json  0.2 KB
+  fwd_ret_panel.parquet  2041.9 KB
+  hk_hold.parquet  19505.1 KB
+  holder_pit.parquet  942.3 KB
+  holder_trade_pit.parquet  1558.9 KB
+  icir_weight_history.parquet  30.9 KB
+  ic_series_all_factors.parquet  33 KB
+  index_member.parquet  178.1 KB
+  index_quote.parquet  165.8 KB
+  indicator_pit.parquet  11979.5 KB
+  industry.parquet  9461.6 KB
+  margin.parquet  125294 KB
+  moneyflow.parquet  157269.5 KB
+  moneyflow_hsgt.parquet  121.9 KB
+  pledge_stat.parquet  6732.4 KB
+  portfolio_weights_baseline.parquet  770.5 KB
+  portfolio_weights_meta.parquet  7.2 KB
+  portfolio_weights_optimized.parquet  902.1 KB
+  share_float.parquet  310.5 KB
+  stk_surv.parquet  2097.6 KB
+  stock_status.parquet  6556.4 KB
+  top_inst.parquet  37772.7 KB
+  top_list.parquet  5732.4 KB
+
+
+## experiments/ 各子目录
+  ridge_rolling
+  ridge_signal
+  te_grid
+  turnover_lambda_grid
+  v1.0
+  v1.1
+  v1.2
+
+
+## data 目录总大小
+data/: 4.71 GB
+experiments/: 42.3 MB

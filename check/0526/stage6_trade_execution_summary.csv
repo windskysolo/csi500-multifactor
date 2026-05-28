@@ -1,0 +1,3 @@
+﻿source_id,n_trades,all_exec_gt_rebalance,stamp_duty_rates,total_cost,avg_cost_bps,annual_turnover_pct,avg_n_locked,avg_n_no_buy,avg_n_no_sell,avg_n_no_price,max_n_locked,max_n_no_buy,max_n_no_sell,max_n_no_price
+pipeline_b_frozen_replay,24,True,[0.001],0.03288974023981395,12.754363240085176,1003.5253489841452,0.041666666666666664,0.20833333333333334,0.0,0.08333333333333333,1,1,0,1
+rolling_48m_replay,24,True,[0.001],0.034459820634313465,12.827827645185858,1009.2298353316595,0.041666666666666664,0.375,0.0,0.125,1,2,0,1

@@ -1,0 +1,3 @@
+﻿source_id,n,monthly_excess_return_mean,monthly_excess_return_median,monthly_excess_return_max,monthly_excess_return_min
+pipeline_b_frozen_replay,23,0.001561611057969867,-0.0023738278657552403,0.028815769877695963,-0.023360462842059393
+rolling_48m_replay,23,0.0034044772371541634,0.006800973017932588,0.03724840659865247,-0.02382831719933043

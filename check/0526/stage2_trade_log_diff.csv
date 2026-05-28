@@ -1,0 +1,4 @@
+﻿source_id,comparison,old_path,new_path,old_exists,new_rows,max_abs_numeric_diff,nonzero_numeric_cells_gt_1e_10,note,old_rows,aligned_rows
+pipeline_b_lam0050,existing_weights_current_engine_vs_existing_trades,experiments/turnover_lambda_grid/results/lam_0050/trades_v2.parquet,check/0526/tmp/stage2/pipeline_b_lam0050_replayed/trades_valid.parquet,True,24,6.661338147750939e-16,0,,24.0,24.0
+rolling_48m,existing_weights_current_engine_vs_existing_trades,,check/0526/tmp/stage2/rolling_48m_replayed/trades_valid.parquet,False,24,,0,no old trade log,,
+pipeline_b_lam0050,rebuilt_expanding_current_optimizer_vs_existing_trades,experiments/turnover_lambda_grid/results/lam_0050/trades_v2.parquet,check/0526/tmp/stage2/expanding_rebuilt_current_code/trades_valid.parquet,True,24,2.0,120,,24.0,24.0

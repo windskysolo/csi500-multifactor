@@ -1,0 +1,79 @@
+{
+  "challengers": [
+    {
+      "name": "rolling36",
+      "run_id": "20260527_141843__challenger_rolling36_te6_lam0050",
+      "scope": "train_valid",
+      "status": "researching",
+      "registered_at": "2026-05-27",
+      "metrics_v2": {
+        "information_ratio": 0.966,
+        "excess_return": 0.058,
+        "excess_max_drawdown": -0.0838,
+        "tracking_error": 0.060,
+        "monthly_win_rate": 0.522,
+        "annual_turnover_pct": 1002
+      },
+      "notes": "rolling 36m window, alpha=5000. All hard thresholds PASS."
+    },
+    {
+      "name": "rolling48",
+      "run_id": "20260527_142056__challenger_rolling48_te6_lam0050",
+      "scope": "train_valid",
+      "status": "researching",
+      "registered_at": "2026-05-27",
+      "metrics_v2": {
+        "information_ratio": 1.489,
+        "excess_return": 0.0863,
+        "excess_max_drawdown": -0.0582,
+        "tracking_error": 0.058,
+        "monthly_win_rate": 0.565,
+        "annual_turnover_pct": 1002
+      },
+      "notes": "rolling 48m window, alpha=5000. Best IR among rolling variants. All hard thresholds PASS."
+    },
+    {
+      "name": "rolling60",
+      "run_id": "20260527_142318__challenger_rolling60_te6_lam0050",
+      "scope": "train_valid",
+      "status": "researching",
+      "registered_at": "2026-05-27",
+      "metrics_v2": {
+        "information_ratio": 1.176,
+        "excess_return": 0.0687,
+        "excess_max_drawdown": -0.0673,
+        "tracking_error": 0.0584,
+        "monthly_win_rate": 0.478,
+        "annual_turnover_pct": 975
+      },
+      "notes": "rolling 60m window, alpha=5000. All hard thresholds PASS."
+    },
+    {
+      "name": "decay_ridge_hl24",
+      "run_id": null,
+      "scope": "train_valid",
+      "status": "not_started",
+      "registered_at": "2026-05-27",
+      "metrics_v2": null,
+      "notes": "PENDING: requires src/signal/ridge_decay.py implementation. spec pre-registered at configs/pipelines/challenger_decay_ridge_hl24_te6_lam0050.py."
+    },
+    {
+      "name": "decay_ridge_hl36",
+      "run_id": null,
+      "scope": "train_valid",
+      "status": "not_started",
+      "registered_at": "2026-05-27",
+      "metrics_v2": null,
+      "notes": "PENDING: requires src/signal/ridge_decay.py implementation. spec pre-registered at configs/pipelines/challenger_decay_ridge_hl36_te6_lam0050.py."
+    },
+    {
+      "name": "decay_ridge_hl48",
+      "run_id": null,
+      "scope": "train_valid",
+      "status": "not_started",
+      "registered_at": "2026-05-27",
+      "metrics_v2": null,
+      "notes": "PENDING: requires src/signal/ridge_decay.py implementation. spec pre-registered at configs/pipelines/challenger_decay_ridge_hl48_te6_lam0050.py."
+    }
+  ]
+}

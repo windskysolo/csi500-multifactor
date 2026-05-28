@@ -1,0 +1,6 @@
+﻿run_id,comparison,aligned_shape,max_abs_weight_diff,mean_abs_weight_diff,nonzero_cells_gt_1e_10,dates_with_diff_gt_1e_10,dates_with_material_diff_gt_1e_6,first_diff_date,first_material_diff_date
+rebuild_01,current_rebuild_vs_existing_pipeline_b,144x1358,8.909487320948655e-10,5.965146007746408e-14,27,7,0,2015-11-30,
+rebuild_02,current_rebuild_vs_existing_pipeline_b,144x1358,8.909487320948655e-10,5.965146007746408e-14,27,7,0,2015-11-30,
+rebuild_03,current_rebuild_vs_existing_pipeline_b,144x1358,8.909487320948655e-10,5.965146007746408e-14,27,7,0,2015-11-30,
+rebuild_02,rebuild_02_vs_rebuild_01,144x1358,0.0,0.0,0,0,0,,
+rebuild_03,rebuild_03_vs_rebuild_01,144x1358,0.0,0.0,0,0,0,,

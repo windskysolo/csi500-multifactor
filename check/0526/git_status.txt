@@ -1,0 +1,111 @@
+commit:
+7423f1e59bdd23a11b7c38474801def9ec0aeed1
+
+status --short:
+M .gitignore
+ M AGENTS.md
+ M CLAUDE.md
+ D DONE.md
+ D PROJECT_PLAN_v1.1.md
+ M README.md
+ D backtest_design.md
+ D check/00_review_requirements.md
+ D check/01_project_structure_inventory.md
+ D check/02_full_project_review_plan.md
+ D check/03_stage_review_findings.md
+ D check/04_fix_log.md
+ D check/09_portfolio_optimization_audit.md
+ D check/10_backtest_audit.md
+ D check/11_attribution_report_audit.md
+ D check/12_repro_test_release_checklist.md
+ D check/13_stage0_2_fix_verification.md
+ D check/14_incomplete_fix_register.md
+ D check/15_stage3_4_fix_verification.md
+ D check/16_stage5_6_fix_verification.md
+ D check/17_stage6_7_fix_verification.md
+ D check/18_stage9_fix_verification.md
+ D check/19_final_remediation_plan.md
+ D check/20_stageA_B_completion_verification.md
+ D check/21_stageC_D_completion_verification.md
+ D check/22_stageEF_completion_verification.md
+ D check/23_pre_run_readiness_verification.md
+ D check/24_training_validation_pipeline_refresh.md
+ D check/phase0_state_snapshot_20260521.md
+ D check/stages_AB_CD_review.md
+ D check/test_set_run_log.md
+ M reports/analysis_v2_results.md
+ M reports/factor_evaluation/factor_correlation.csv
+ M reports/factor_evaluation/factor_evaluation_report.md
+ M reports/factor_evaluation/factor_overview.csv
+ M reports/factor_evaluation/factor_summary.csv
+ M reports/factor_evaluation/final_factors.json
+ M reports/factor_evaluation/ic_decay_result.csv
+ M reports/factor_evaluation/ic_result.csv
+ M reports/factor_evaluation/quintile_summary.csv
+ M reports/factor_evaluation/seg_ic_ir.csv
+ M reports/factor_evaluation/shift_result.csv
+ M reports/factor_evaluation/valid_comparison.csv
+ M scripts/build_factor_panels.py
+ M scripts/download_tushare.py
+ M scripts/generate_backtest_report.py
+ M scripts/run_attribution.py
+ M scripts/run_pipeline.py
+ M scripts/run_test_pipeline.py
+ M src/attribution/factor_attr.py
+ M src/config.py
+ M src/data/pit_loader.py
+ M src/factors/alt_factors.py
+ M src/factors/financial_factors.py
+ M src/factors/price_factors.py
+ D teach/china_ashare_factor_library.md
+ D teach/data_expansion_plan/alt_factors_implementation.md
+ D teach/data_expansion_plan/current_status_next_steps.md
+ D teach/data_expansion_plan/execution_log.md
+ D teach/data_expansion_plan/phase_plan.md
+ D teach/data_expansion_plan/readiness_check.md
+ D teach/deep_dive/00_reading_guide.md
+ D teach/deep_dive/01_config.md
+ D teach/deep_dive/02_data_loader.md
+ D teach/deep_dive/03_pit_loader.md
+ D teach/deep_dive/04_universe.md
+ D teach/deep_dive/05_financial_factors.md
+ D teach/deep_dive/06_price_factors.md
+ D teach/deep_dive/07_preprocess.md
+ D teach/deep_dive/08_ic_analysis.md
+ D teach/deep_dive/09_quintile_backtest.md
+ D teach/deep_dive/10_shift_test.md
+ D teach/deep_dive/11_combiner.md
+ D teach/deep_dive/12_covariance.md
+ D teach/deep_dive/13_optimizer.md
+ D teach/deep_dive/14_backtest_engine.md
+ D teach/deep_dive/15_transaction.md
+ D teach/deep_dive/16_metrics.md
+ D teach/deep_dive/17_brinson.md
+ D teach/deep_dive/18_factor_attr.md
+ D teach/deep_dive/PLAN.md
+ D teach/detailed_pipeline_guide.md
+ D teach/improve/progress_log.md
+ D teach/improvement_guide.md
+ D teach/project_explainer.md
+ D teach/results_interpretation.md
+?? .claude/
+?? check/0526/
+?? docs/
+?? experiments/
+?? reports/factor_evaluation_factor_impl_stage1/
+?? reports/factor_evaluation_momentum_sprint/
+?? reports/processed_coverage_report.md
+?? reports/ridge_rolling_experiment.md
+?? reports/turnover_lambda_grid/
+?? reports/v2_final_analysis.md
+?? scripts/diagnose_optimizer.py
+?? scripts/plot_validation_results.py
+?? scripts/run_optimizer_grid.py
+?? scripts/run_turnover_lambda_grid.py
+?? scripts/save_version.py
+?? scripts/test_set_ledger.py
+?? tests/test_phase4_factors.py
+?? tests/test_phase5_factors.py
+[stderr]
+warning: unable to access 'C:\Users\lengyanjun/.config/git/ignore': Permission denied
+warning: unable to access 'C:\Users\lengyanjun/.config/git/ignore': Permission denied
