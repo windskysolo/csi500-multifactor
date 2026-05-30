@@ -57,6 +57,9 @@ WINDOW_FLOW    = 20    # 资金流向均值窗口
 MIN_VOL_PERIODS = 40   # 波动率计算最少交易日数（低于此返回 NaN）
 MIN_IVOL_PERIODS = 30  # IVOL 回归最少观测数（低于此返回 NaN）
 HOLDER_STALE_MONTHS = 18  # 股东人数最新期距 T 超过此月数视为过期
+WINDOW_MF_FLOW  = 20        # 融资净买入流量窗口（交易日）
+WINDOW_MF_STOCK = 60        # 融资余额拥挤度窗口（交易日，备用）
+_MF_WAN_TO_YUAN = 10_000.0  # daily_basic.circ_mv 万元→元
 
 # Sprint 1 动量因子新增常量
 WINDOW_CONSISTENCY_LOOKBACK = 6    # 月涨幅一致性：计算月度收益的月数
@@ -940,6 +943,134 @@ def factor_mom_risk_adj(
     return result
 
 
+def factor_share_issuance(
+    rebalance_date: pd.Timestamp,
+    codes: list[str],
+) -> pd.Series:
+    """
+    股本稀释因子（取反后为正向因子）。
+
+    经济逻辑：管理层在股价高估时倾向增发（负向信号）；在低估时回购（正向信号）。
+    Loughran & Ritter (1995) 发现增发后 5 年内股票系统性跑输；
+    A 股创业板/科创板定向增发极为频繁，使该因子具有持续差异化价值。
+
+    share_change = (total_share_T - total_share_{T-252td}) / total_share_{T-252td}
+    Factor = -share_change（增发 = 负向，回购/注销 = 正向，取反后正向因子）
+
+    PIT 合规：daily_basic.total_share 是交易所实时数据，无前视偏差。
+    极端值截尾至 [-1, 1]（100% 增发/回购视为异常重组事件）。
+
+    预期方向：+（股本缩减的公司预期超额收益更高）
+
+    Args:
+        rebalance_date: 调仓日
+        codes:          可投资股票代码列表
+    Returns:
+        ts_code → -yoy_share_change（小数）；历史不足时为 NaN
+    Time alignment: 两端均为已发生的市场数据，无未来函数
+    Data deps: daily_basic.parquet
+    """
+    valid = _valid_dates_before(rebalance_date)
+    if len(valid) <= WINDOW_HIGH_52W:
+        return pd.Series(dtype=float,
+                         index=pd.Index(codes, name="ts_code"),
+                         name="share_issuance")
+
+    one_year_ago = valid[-(WINDOW_HIGH_52W + 1)]   # T 前第 252 个交易日（不含 T）
+
+    basic_now  = load_daily_basic(rebalance_date, rebalance_date,  codes=codes)
+    basic_prev = load_daily_basic(one_year_ago,   one_year_ago,    codes=codes)
+
+    now_dates  = basic_now.index.get_level_values("trade_date")
+    prev_dates = basic_prev.index.get_level_values("trade_date")
+    if rebalance_date not in now_dates or one_year_ago not in prev_dates:
+        return pd.Series(dtype=float,
+                         index=pd.Index(codes, name="ts_code"),
+                         name="share_issuance")
+
+    shares_now  = basic_now.loc[rebalance_date]["total_share"]
+    shares_prev = basic_prev.loc[one_year_ago]["total_share"]
+
+    common = shares_now.index.intersection(shares_prev.index)
+    denom  = shares_prev[common].replace(0, np.nan)
+
+    share_change = ((shares_now[common] - shares_prev[common]) / denom).clip(-1, 1)
+
+    result      = -share_change
+    result.name = "share_issuance"
+    return result.reindex(codes)
+
+
+def factor_mf_flow_ratio(
+    rebalance_date: pd.Timestamp,
+    codes: list[str],
+) -> pd.Series:
+    """
+    近期融资净买入流量比（正向动量信号）。
+
+    mf_flow_ratio = sum(rz_net, 近20交易日) / 当日流通市值
+
+    经济逻辑：近期本土杠杆资金净流入 → 短期需求支撑 → 正向动量信号。
+    与 hk_hold_chg（北向资金）互补，覆盖 A 股本土散户/杠杆资金视角；
+    中证500成分股两融覆盖率 > 95%，覆盖率充足。
+
+    与现有因子的相关性预估：
+      turn_20d：r ≈ 0.25-0.40（高融资买入伴随高换手，Ridge 可自然处理）
+      hk_hold_chg：r < 0.20（不同资金来源，独立性强）
+
+    注意：优先使用 rz_net 直接列；若缺失则由 rzmre - rzche 计算；
+    两者均不可用时返回全 NaN（不回退到 rzye）。
+
+    预期方向：+（融资净流入越多，短期价格支撑越强）
+
+    Args:
+        rebalance_date: 调仓日
+        codes:          可投资股票代码列表
+    Returns:
+        ts_code → 20日融资净买入 / 流通市值（无量纲）；无数据时为 NaN
+    Time alignment: 使用 [T-20td, T] 的融资流量数据，不包含未来
+    Data deps: margin.parquet, daily_basic.parquet
+    """
+    valid = _valid_dates_before(rebalance_date)
+    if len(valid) < WINDOW_MF_FLOW:
+        return pd.Series(dtype=float,
+                         index=pd.Index(codes, name="ts_code"),
+                         name="mf_flow_ratio")
+
+    start = valid[-WINDOW_MF_FLOW]
+    mg    = load_margin(start, rebalance_date, codes=codes)
+
+    if mg.empty:
+        return pd.Series(dtype=float,
+                         index=pd.Index(codes, name="ts_code"),
+                         name="mf_flow_ratio")
+
+    if "rz_net" in mg.columns:
+        flow = mg["rz_net"]
+    elif {"rzmre", "rzche"}.issubset(mg.columns):
+        flow = mg["rzmre"] - mg["rzche"]
+    else:
+        log.warning("mf_flow_ratio: margin 缓存缺少 rz_net 或 rzmre/rzche，返回全 NaN")
+        return pd.Series(dtype=float,
+                         index=pd.Index(codes, name="ts_code"),
+                         name="mf_flow_ratio")
+
+    net_buy_20d = flow.unstack("ts_code").fillna(0.0).sum(axis=0)   # 20日累计净买入（元）
+
+    # 流通市值（daily_basic.circ_mv 万元 → 元，与 margin 数据元单位对齐）
+    basic = load_daily_basic(rebalance_date, rebalance_date, codes=codes)
+    if rebalance_date not in basic.index.get_level_values("trade_date"):
+        return pd.Series(dtype=float,
+                         index=pd.Index(codes, name="ts_code"),
+                         name="mf_flow_ratio")
+    circ_mv_yuan = basic.loc[rebalance_date]["circ_mv"] * _MF_WAN_TO_YUAN
+
+    common = net_buy_20d.index.intersection(circ_mv_yuan.index)
+    result = net_buy_20d[common] / circ_mv_yuan[common].replace(0, np.nan)
+    result.name = "mf_flow_ratio"
+    return result.reindex(codes)
+
+
 # ---------------------------------------------------------------------------
 # 批量构建入口
 # ---------------------------------------------------------------------------
@@ -969,6 +1100,9 @@ _PRICE_FACTOR_BUILDERS = {
     "high_52w_v2":        factor_high_52w_v2,
     "ind_adj_mom_6_1":    factor_ind_adj_mom_6_1,
     "mom_consistency_6":  factor_mom_consistency_6,
+    # 阶段 7：股本行为 + 融资资金
+    "share_issuance":     factor_share_issuance,
+    "mf_flow_ratio":      factor_mf_flow_ratio,
 }
 
 

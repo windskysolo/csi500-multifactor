@@ -204,7 +204,7 @@ def main() -> None:
     # ── 执行各阶段 ────────────────────────────────────────────────────────────
     from src.pipeline.stages import (
         run_signal_stage, run_portfolio_stage, run_backtest_stage,
-        write_self_check_md,
+        write_self_check_md, run_diagnosis_stage,
     )
     from src import config as cfg
 
@@ -244,6 +244,14 @@ def main() -> None:
             write_self_check_md(spec, ctx.run_dir)
         except Exception as e:
             log.warning("self_check.md 写入失败（不阻断）: %s", e)
+
+    # ── 信号实现质量诊断（非阻断，依赖 self_check.md 已存在）─────────────
+    if "backtest" in active_stages:
+        try:
+            log.info("── 生成 reports/signal_quality_report.json ──")
+            run_diagnosis_stage(spec, ctx.run_dir, data_proc=cfg.DATA_PROC)
+        except Exception as e:
+            log.warning("signal quality diagnosis 失败（不阻断）: %s", e)
 
     log.info("=" * 60)
     log.info("实验完成: %s", ctx.run_id)

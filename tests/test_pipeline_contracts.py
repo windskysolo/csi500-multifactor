@@ -37,6 +37,7 @@ def test_spec_json_roundtrip():
     assert data["experiment_id"] == "test_exp"
     assert data["signal"]["method"] == "ridge"
     assert data["optimizer"]["te_target_annual"] == 0.06
+    assert data["optimizer"]["optimizer_mode"] == "qp"
 
 
 def test_spec_allow_test_set_false_by_default():
@@ -107,3 +108,52 @@ def test_signal_spec_optional_fields_default_none():
     sig = SignalSpec(method="ridge", target="excess_return", training_mode="expanding")
     assert sig.half_life_months is None
     assert sig.window_months is None
+
+
+def test_optimizer_spec_default_mode_is_qp():
+    opt = OptimizerSpec()
+    assert opt.optimizer_mode == "qp"
+
+
+def test_optimizer_spec_allows_topn_ew_mode():
+    opt = OptimizerSpec(optimizer_mode="topn_ew", topn=50)
+    assert opt.optimizer_mode == "topn_ew"
+
+
+def test_optimizer_spec_rejects_unknown_mode():
+    with pytest.raises(ValueError, match="optimizer_mode"):
+        OptimizerSpec(optimizer_mode="bad_mode")
+
+
+def test_frozen_baseline_spec_loads():
+    spec = ExperimentSpec.from_config_file(
+        "configs/pipelines/frozen_baseline_icir_topn50_ew.py"
+    )
+    assert spec.experiment_id == "frozen_baseline_icir_topn50_ew"
+    assert spec.period_scope == "train_valid"
+    assert spec.optimizer.optimizer_mode == "topn_ew"
+    assert spec.optimizer.topn == 50
+
+
+def test_run_portfolio_stage_passes_optimizer_mode(monkeypatch, tmp_path):
+    from scripts import run_portfolio_optimization
+    from src.pipeline.stages import run_portfolio_stage
+
+    captured = {}
+
+    def fake_portfolio_main(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(run_portfolio_optimization, "main", fake_portfolio_main)
+    spec = _make_spec(optimizer=OptimizerSpec(optimizer_mode="topn_ew", topn=50))
+
+    outputs = run_portfolio_stage(
+        spec=spec,
+        run_dir=tmp_path,
+        signal_path=tmp_path / "signal" / "composite.parquet",
+        data_proc=tmp_path,
+    )
+
+    assert captured["optimizer_mode"] == "topn_ew"
+    assert captured["optimizer_config"].topn == 50
+    assert outputs["target_weights"] == tmp_path / "portfolio" / "target_weights.parquet"

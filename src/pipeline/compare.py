@@ -65,6 +65,7 @@ def load_run_metrics(
     row["te_target_pct"] = _round(opt.get("te_target_annual", float("nan")), scale=100, dp=1)
     row["turnover_lambda"] = opt.get("turnover_lambda")
     row["topn"] = opt.get("topn")
+    row["optimizer_mode"] = opt.get("optimizer_mode", "qp")
     row["is_test_set"] = bool(spec.get("allow_test_set", False))
 
     # Artifact hash (composite.parquet sha256 前 8 位，供快速审计)
@@ -77,6 +78,9 @@ def load_run_metrics(
 
     # IC stats（验证期，从 composite.parquet + fwd_ret_panel 动态计算）
     row.update(_compute_ic_stats(run_dir))
+
+    # 信号实现质量（来自 reports/signal_quality_report.json，旧 run 缺失时为 NaN）
+    row.update(_load_signal_quality(run_dir))
 
     # Fallback 统计（来自 portfolio/optimizer_meta.parquet）
     row.update(_load_fallback_counts(run_dir))
@@ -134,8 +138,10 @@ def compare_runs(
 
     col_order = [
         "run_id", "experiment_id", "signal_method", "training_mode", "window_months",
-        "te_target_pct", "turnover_lambda", "topn", "is_test_set", "composite_sha256",
+        "te_target_pct", "turnover_lambda", "topn", "optimizer_mode", "is_test_set",
+        "composite_sha256",
         "IC_mean", "IC_IR", "IC_t", "IC_p",
+        "tc_mean", "n_eff", "ir_loss_pct",
         "fallback_L0_cnt", "fallback_L1_cnt", "fallback_L2_cnt", "fallback_L3_cnt",
         "IR", "excess_return_pct", "excess_max_drawdown_pct",
         "tracking_error_pct", "monthly_win_rate_pct", "annual_turnover_pct",
@@ -376,3 +382,26 @@ def _compute_paired_p(mainline_exc: pd.Series, challenger_exc: pd.Series) -> flo
         return round(float(p), 4)
     except Exception:
         return float("nan")
+
+
+def _load_signal_quality(run_dir: Path) -> dict:
+    """
+    Load signal-to-position quality metrics from reports/signal_quality_report.json.
+
+    Returns dict: tc_mean, n_eff, ir_loss_pct (float, NaN when file absent or field missing).
+    Older runs without the report file gracefully return NaN for all fields.
+    """
+    nan = float("nan")
+    empty = {"tc_mean": nan, "n_eff": nan, "ir_loss_pct": nan}
+    report_path = run_dir / "reports" / "signal_quality_report.json"
+    if not report_path.exists():
+        return empty
+    try:
+        data = json.loads(report_path.read_text(encoding="utf-8"))
+        return {
+            "tc_mean": _safe_float(data.get("tc", nan)),
+            "n_eff": _safe_float(data.get("n_eff", nan)),
+            "ir_loss_pct": _safe_float(data.get("ir_loss_pct", nan)),
+        }
+    except Exception:
+        return empty

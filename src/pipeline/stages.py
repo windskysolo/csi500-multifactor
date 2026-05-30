@@ -36,7 +36,7 @@ def run_signal_stage(
       "icir"                    — IC_IR 加权合成信号
       "ridge" + "expanding"     — expanding window Ridge 回归信号
       "ridge" + "rolling"       — rolling window Ridge 回归信号（需 window_months）
-      "ridge" + "decay_weighted_expanding" — 尚未实现，抛出 NotImplementedError
+      "ridge" + "decay_weighted_expanding" — 指数衰减 Ridge，需 spec.signal.half_life_months
 
     Returns:
         dict with key "composite" → Path to composite.parquet
@@ -56,11 +56,6 @@ def run_signal_stage(
     if method == "icir":
         return _run_signal_icir(sig, signal_dir, _data_proc, spec)
     elif method == "ridge":
-        if mode == "decay_weighted_expanding":
-            raise NotImplementedError(
-                "decay_weighted_expanding 训练模式尚未在 src/signal/ 中实现。"
-                "spec 已预注册，请先实现 src/signal/ridge_decay.py 后再运行此 spec。"
-            )
         return _run_signal_ridge(sig, signal_dir, _data_proc, spec, mode)
     else:
         raise ValueError(f"未知的信号方法: '{method}'。支持: 'icir', 'ridge'")
@@ -78,7 +73,10 @@ def _run_signal_icir(sig, signal_dir: Path, data_proc: Path, spec) -> dict[str, 
     eval_dir  = Path(__file__).parents[2] / "reports" / "factor_evaluation"
 
     # 加载因子面板
-    factor_panels = _load_factor_panels(panel_dir, eval_dir)
+    factor_panels = _load_factor_panels(
+        panel_dir, eval_dir,
+        exclude_factors=sig.exclude_factors or [],
+    )
     fwd_ret_panel = _load_fwd_ret(fwd_path, cfg.VALID_END)
 
     all_dates = pd.DatetimeIndex(
@@ -146,7 +144,10 @@ def _run_signal_ridge(sig, signal_dir: Path, data_proc: Path, spec, mode: str) -
     fwd_path  = data_proc / "fwd_ret_panel.parquet"
     eval_dir  = Path(__file__).parents[2] / "reports" / "factor_evaluation"
 
-    factor_panels = _load_factor_panels(panel_dir, eval_dir)
+    factor_panels = _load_factor_panels(
+        panel_dir, eval_dir,
+        exclude_factors=sig.exclude_factors or [],
+    )
     fwd_ret_panel = _load_fwd_ret(fwd_path, cfg.VALID_END)
 
     all_dates = pd.DatetimeIndex(
@@ -171,11 +172,26 @@ def _run_signal_ridge(sig, signal_dir: Path, data_proc: Path, spec, mode: str) -
             alpha_candidates = sig.alpha_grid,
             purge_months     = sig.purge_months,
         )
-    else:  # expanding
+    elif mode == "decay_weighted_expanding":
+        if not sig.half_life_months:
+            raise ValueError("decay_weighted_expanding 模式需要 spec.signal.half_life_months")
+        from src.signal.ridge_decay import RidgeDecayCombiner
+        combiner = RidgeDecayCombiner(
+            factor_names     = factor_names,
+            half_life_months = sig.half_life_months,
+            alpha_candidates = sig.alpha_grid,
+            purge_months     = sig.purge_months,
+        )
+    elif mode == "expanding":
         combiner = RidgeCombiner(
             factor_names     = factor_names,
             alpha_candidates = sig.alpha_grid,
             purge_months     = sig.purge_months,
+        )
+    else:
+        raise ValueError(
+            f"未知 ridge training_mode: {mode!r}。"
+            "支持: 'expanding', 'rolling', 'decay_weighted_expanding'"
         )
     combiner.select_alpha_walk_forward(tv_panels, fwd_ret_panel, tv_dates)
     composite = combiner.build_ridge_panel(tv_panels, fwd_ret_panel, tv_dates)
@@ -193,6 +209,7 @@ def _run_signal_ridge(sig, signal_dir: Path, data_proc: Path, spec, mode: str) -
         "method": "ridge",
         "training_mode": mode,
         "window_months": sig.window_months if mode == "rolling" else None,
+        "half_life_months": sig.half_life_months if mode == "decay_weighted_expanding" else None,
         "selected_alpha": getattr(combiner, "alpha_", None),
         "n_factors": len(factor_names),
         "n_rebalance_dates": len(tv_dates),
@@ -232,16 +249,24 @@ def run_portfolio_stage(
         turnover_lambda   = opt.turnover_lambda,
         topn              = opt.topn,
         max_solve_seconds = 30.0,
+        prefilter_topn    = getattr(opt, "prefilter_topn", 0),
+        prefilter_mode    = getattr(opt, "prefilter_mode", "none"),
     )
 
-    log.info("组合优化阶段: te=%.0f%%  lambda=%.4f  topn=%d",
-             opt.te_target_annual * 100, opt.turnover_lambda, opt.topn)
+    optimizer_mode = getattr(opt, "optimizer_mode", "qp")
+    log.info("组合优化阶段: mode=%s  te=%.0f%%  lambda=%.4f  topn=%d",
+             optimizer_mode, opt.te_target_annual * 100, opt.turnover_lambda, opt.topn)
+
+    effective_signal_path = signal_path
+    if getattr(opt, "use_rank_transform", False):
+        effective_signal_path = _apply_rank_transform(signal_path, run_dir)
 
     portfolio_main(
-        signal_path      = signal_path,
+        signal_path      = effective_signal_path,
         output_dir       = run_dir,
         cov_cache_dir    = _data_proc / "cov_cache",
         optimizer_config = optimizer_config,
+        optimizer_mode   = optimizer_mode,
     )
 
     port_dir = run_dir / "portfolio"
@@ -292,7 +317,32 @@ def run_backtest_stage(
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _load_factor_panels(panel_dir: Path, eval_dir: Path) -> dict:
+def _apply_rank_transform(signal_path: Path, run_dir: Path) -> Path:
+    """
+    对截面 Alpha 做排名百分位变换，写到 signal/ 目录，返回新路径。
+
+    rank(pct=True, na_option='keep') 输出 (0,1]，减 0.5 后变为 (-0.5, 0.5]。
+    保留 NaN（optimizer 内部对无观点股票置 0 处理）。
+
+    为什么在 stages 层而非 optimizer 层做：
+      optimizer.py 只负责给定 Alpha 向量后的权重求解；排名变换是信号后处理，
+      属于信号→组合衔接逻辑，放在此处边界最清晰。
+    """
+    import pandas as pd
+
+    signal = pd.read_parquet(signal_path)
+    ranked = signal.rank(axis=1, pct=True, na_option="keep") - 0.5
+    out_path = run_dir / "signal" / "composite_rank_transformed.parquet"
+    ranked.to_parquet(out_path)
+    log.info("排名变换完成，写入 %s  shape=%s", out_path, ranked.shape)
+    return out_path
+
+
+def _load_factor_panels(
+    panel_dir: Path,
+    eval_dir: Path,
+    exclude_factors: list[str] | None = None,
+) -> dict:
     import json
 
     factor_files = sorted(panel_dir.glob("*.parquet"))
@@ -306,10 +356,16 @@ def _load_factor_panels(panel_dir: Path, eval_dir: Path) -> dict:
     if eval_json.exists():
         with open(eval_json, encoding="utf-8") as f:
             selected = json.load(f)["final_factors"]
-        return {k: v for k, v in all_panels.items() if k in selected}
+        result = {k: v for k, v in all_panels.items() if k in selected}
+    else:
+        log.warning("final_factors.json 不存在，使用全部 %d 个因子面板", len(all_panels))
+        result = all_panels
 
-    log.warning("final_factors.json 不存在，使用全部 %d 个因子面板", len(all_panels))
-    return all_panels
+    if exclude_factors:
+        excluded_found = [f for f in exclude_factors if f in result]
+        result = {k: v for k, v in result.items() if k not in exclude_factors}
+        log.info("已排除因子：%s  剩余 %d 个", excluded_found, len(result))
+    return result
 
 
 def _load_fwd_ret(fwd_path: Path, valid_end) -> "pd.DataFrame":
@@ -452,11 +508,99 @@ def write_self_check_md(spec, run_dir: Path) -> Path:
         f"- optimizer.te_target_annual: `{spec.optimizer.te_target_annual:.0%}`",
         f"- optimizer.turnover_lambda: `{spec.optimizer.turnover_lambda}`",
         f"- optimizer.topn: `{spec.optimizer.topn}`",
+        f"- optimizer.optimizer_mode: `{getattr(spec.optimizer, 'optimizer_mode', 'qp')}`",
+        f"- optimizer.use_rank_transform: `{getattr(spec.optimizer, 'use_rank_transform', False)}`",
     ]
 
     out_path.write_text("\n".join(lines), encoding="utf-8")
     log.info("self_check.md 已写入: %s", out_path)
     return out_path
+
+
+# ---------------------------------------------------------------------------
+# Diagnosis stage（信号实现质量诊断）
+# ---------------------------------------------------------------------------
+
+def run_diagnosis_stage(
+    spec,
+    run_dir: Path,
+    data_proc=None,
+) -> dict:
+    """
+    运行信号实现质量诊断，产物写到 run_dir/reports/。
+
+    输入（从已完成的 signal / portfolio 阶段读取）：
+        signal/composite.parquet          → 截面信号
+        portfolio/target_weights.parquet  → 实际持仓权重
+        data_proc/fwd_ret_panel.parquet   → 前瞻收益
+
+    输出：
+        reports/signal_quality_report.json  ← 结构化 JSON，供 compare_runs 读取
+        reports/self_check.md               ← 追加诊断节（文件已存在时）
+
+    本函数为非阻断设计：调用方应自行 try/except，失败不影响 run 状态。
+
+    Returns:
+        dict with key "signal_quality_report" → Path（成功时），或空 dict（失败时）
+    """
+    import json as _json
+
+    import pandas as pd
+    from src import config as cfg
+    from src.evaluation.signal_quality import SignalToPositionDiagnostics
+
+    _data_proc = data_proc or cfg.DATA_PROC
+
+    signal_path  = run_dir / "signal" / "composite.parquet"
+    weights_path = run_dir / "portfolio" / "target_weights.parquet"
+    fwd_path     = _data_proc / "fwd_ret_panel.parquet"
+    reports_dir  = run_dir / "reports"
+    out_json     = reports_dir / "signal_quality_report.json"
+    out_md       = reports_dir / "self_check.md"
+
+    # 检查必须的输入文件
+    missing = [p for p in [signal_path, weights_path, fwd_path] if not p.exists()]
+    if missing:
+        log.warning("diagnosis: 缺少输入文件，跳过诊断: %s",
+                    [str(m) for m in missing])
+        return {}
+
+    signals = pd.read_parquet(signal_path)
+    weights = pd.read_parquet(weights_path)
+    fwd_ret = pd.read_parquet(fwd_path)
+
+    # 确保 index 为 Timestamp
+    signals.index = pd.DatetimeIndex(signals.index)
+    weights.index = pd.DatetimeIndex(weights.index)
+    fwd_ret.index = pd.DatetimeIndex(fwd_ret.index)
+
+    diag = SignalToPositionDiagnostics(min_stocks=10)
+    report = diag.run(
+        signals=signals,
+        weights=weights,
+        returns=fwd_ret,
+        valid_start=pd.Timestamp(cfg.VALID_START),
+        valid_end=pd.Timestamp(cfg.VALID_END),
+    )
+
+    # 写 JSON
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    out_json.write_text(
+        _json.dumps(report.to_dict(), indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    log.info("signal_quality_report.json 已写入: %s", out_json)
+
+    # 追加到 self_check.md（若存在）
+    if out_md.exists():
+        section = diag.format_report_section(report)
+        existing = out_md.read_text(encoding="utf-8")
+        # 避免重复追加（幂等）
+        if "Signal Quality Diagnostics" not in existing:
+            out_md.write_text(existing + section, encoding="utf-8")
+            log.info("诊断节已追加到 self_check.md")
+
+    return {"signal_quality_report": out_json}
 
 
 def _write_signal_metadata(signal_dir: Path, spec, extra: dict) -> None:

@@ -1,0 +1,11 @@
+{
+  "max_runs": 2,
+  "active_runs": [],
+  "corrections": [
+    {
+      "date": "2026-05-25",
+      "item": "80708d4 [TEST_SET_RUN_1]",
+      "decision": "错误记载，用户确认测试集未使用；不计入 active_runs"
+    }
+  ]
+}

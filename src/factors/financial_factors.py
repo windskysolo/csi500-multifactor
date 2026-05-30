@@ -351,33 +351,35 @@ def factor_accrual(
     codes: list[str],
 ) -> pd.Series:
     """
-    应计项目因子（Accrual）：(TTM净利润 - TTM经营现金流) / 最新总资产。
+    应计项目因子（Accrual）：(TTM净利润 - TTM经营现金流) / 平均总资产。
 
-    高应计 = 净利润中非现金成分多 = 盈利质量差 = 预期负超额收益。
-    分子：TTM 化消除累计口径的季节性；分母：存量指标，取最新 PIT 快照。
+    分母用平均总资产 = (本期总资产 + 4季前总资产) / 2，
+    与 Sloan (1996) 原始定义一致，消除分子(12个月流量)与分母(单点值)的时序错位。
 
-    guard：total_assets = 0 或 NaN 时返回 NaN（极罕见，但需防范除零）。
+    guard：avg_assets ≤ 0 或 NaN 时返回 NaN。
 
-    预期方向：-（高应计对应低未来收益，即 Sloan 1996 异象）
+    预期方向：-（高应计 = 盈利质量差 = 低未来收益）
 
+    Args:
+        rebalance_date: 调仓日
+        codes:          可投资股票代码列表
     Returns:
-        ts_code → accrual（无量纲比率）
+        ts_code → accrual（无量纲比率）；数据不足时为 NaN
     """
-    fp_raw         = get_financial_pit_raw()
-    ttm_ni         = make_ttm(fp_raw, "n_income",       rebalance_date, codes)
-    ttm_cfo        = make_ttm(fp_raw, "n_cashflow_act", rebalance_date, codes)
-    latest         = get_pit_latest(fp_raw, rebalance_date, codes)
+    fp_raw  = get_financial_pit_raw()
+    ttm_ni  = make_ttm(fp_raw, "n_income",       rebalance_date, codes)
+    ttm_cfo = make_ttm(fp_raw, "n_cashflow_act", rebalance_date, codes)
 
-    if latest.empty:
-        return pd.Series(dtype=float, name="accrual")
+    # 平均总资产：取 q0（最新季）和 q4（4季前）的均值
+    hist_assets = get_quarterly_history(
+        fp_raw, "total_assets", rebalance_date, codes, n_quarters=5
+    )
+    avg_assets = ((hist_assets["q0"] + hist_assets["q4"]) / 2).replace(0, np.nan)
+    avg_assets[avg_assets < 0] = np.nan   # 负资产（极罕见）无经济含义
 
-    total_assets   = latest["total_assets"].reindex(ttm_ni.index)
-    # 防止除以零或近零资产
-    total_assets   = total_assets.replace(0, np.nan)
-
-    accrual        = (ttm_ni - ttm_cfo) / total_assets
-    accrual.name   = "accrual"
-    return accrual
+    accrual      = (ttm_ni.reindex(avg_assets.index) - ttm_cfo.reindex(avg_assets.index)) / avg_assets
+    accrual.name = "accrual"
+    return accrual.reindex(codes)
 
 
 # ---------------------------------------------------------------------------
@@ -844,6 +846,49 @@ def factor_garp(
     return result.reindex(codes)
 
 
+def factor_asset_growth(
+    rebalance_date: pd.Timestamp,
+    codes: list[str],
+) -> pd.Series:
+    """
+    总资产增速因子（取反后为正向因子）。
+
+    经济逻辑：资产扩张过快 → 低效投资 / 市场过度乐观 → 未来超额收益偏低。
+    Cooper, Gulen & Schill (2008, JoF) 在美股发现强负向效应；中证500中大量
+    并购驱动型公司，使该因子在 A 股有独特区分度。
+
+    asset_growth_raw = (total_assets_q0 - total_assets_q4) / |total_assets_q4|
+    Factor = -asset_growth_raw（资产增速越低 → 因子值越高 → 预期收益越高）
+
+    金融行业（银行/非银金融）的资产增速是核心业务指标而非过度投资信号；
+    本函数只返回原始值，金融股置 NaN 由 build_factor_panels.py →
+    preprocess_factor(fin_sector_codes=cfg.FINANCIAL_SECTOR_CODES) 统一执行。
+    极端值截尾至 [-5, 5]（重组/剥离事件）。
+
+    预期方向：+（低资产增速预期超额收益）
+
+    Args:
+        rebalance_date: 调仓日
+        codes:          可投资股票代码列表
+    Returns:
+        ts_code → -yoy_asset_growth（小数）；数据不足时为 NaN
+    Time alignment: q0/q4 均来自 pit_date <= T 的已披露数据，无未来函数
+    Data deps: financial_pit.parquet
+    """
+    fp_raw = get_financial_pit_raw()
+    hist   = get_quarterly_history(fp_raw, "total_assets", rebalance_date, codes, n_quarters=5)
+
+    q0    = hist["q0"]
+    q4    = hist["q4"]
+    denom = q4.abs().replace(0, np.nan)
+
+    asset_growth_raw = ((q0 - q4) / denom).clip(-5, 5)
+    result           = -asset_growth_raw
+
+    result.name = "asset_growth"
+    return result.reindex(codes)
+
+
 # ---------------------------------------------------------------------------
 # 批量构建入口
 # ---------------------------------------------------------------------------
@@ -877,6 +922,8 @@ _FACTOR_BUILDERS = {
     # 阶段 5：质量综合因子
     "piotroski_f":        factor_piotroski_f,
     "garp":               factor_garp,
+    # 阶段 7：资本效率
+    "asset_growth":       factor_asset_growth,
 }
 
 # dy_ttm 来自 daily_basic.dv_ttm，有 0-60 天前视偏差，不纳入默认集合。

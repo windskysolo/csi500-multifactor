@@ -1,0 +1,8 @@
+﻿run_id,experiment_id,signal_method,training_mode,window_months,te_target_pct,turnover_lambda,topn,optimizer_mode,is_test_set,composite_sha256,IC_mean,IC_IR,IC_t,IC_p,fallback_L0_cnt,fallback_L1_cnt,fallback_L2_cnt,fallback_L3_cnt,IR,excess_return_pct,excess_max_drawdown_pct,tracking_error_pct,monthly_win_rate_pct,annual_turnover_pct,ir_pass,mdd_pass,to_pass,status
+20260529_034947__frozen_baseline_icir_topn50_ew,frozen_baseline_icir_topn50_ew,icir,expanding,,6.0,0.005,50,topn_ew,False,23024863,0.0471,0.461,2.21,0.0378,0,0,132,0,0.924,6.24,-7.48,6.75,60.9,886.0,True,True,True,finished
+20260528_133249__baseline_icir_te6_lam0050,baseline_icir_te6_lam0050,icir,expanding,,6.0,0.005,50,qp,False,23024863,0.0471,0.461,2.21,0.0378,132,0,0,0,0.402,2.45,-7.75,6.1,56.5,918.0,False,True,True,finished
+20260529_145209__icir_l2_forced,icir_l2_forced,icir,expanding,,6.0,0.005,50,l2_forced,False,,,,,,0,132,0,0,0.356,2.18,-8.26,6.13,56.5,919.0,False,True,True,finished
+20260529_145838__icir_te10_lam0050,icir_te10_lam0050,icir,expanding,,10.0,0.005,50,qp,False,,,,,,132,0,0,0,0.356,2.18,-8.26,6.13,56.5,919.0,False,True,True,finished
+20260529_150439__icir_te15_lam0050,icir_te15_lam0050,icir,expanding,,15.0,0.005,50,qp,False,,,,,,132,0,0,0,0.356,2.18,-8.26,6.13,56.5,919.0,False,True,True,finished
+20260529_151545__icir_te6_noind,icir_te6_noind,icir,expanding,,6.0,0.005,50,qp,False,,,,,,132,0,0,0,0.24,1.54,-7.88,6.41,43.5,885.0,False,True,True,finished
+20260529_150951__icir_te6_ind5pct,icir_te6_ind5pct,icir,expanding,,6.0,0.005,50,qp,False,,,,,,132,0,0,0,0.146,0.92,-7.7,6.32,52.2,893.0,False,True,True,finished

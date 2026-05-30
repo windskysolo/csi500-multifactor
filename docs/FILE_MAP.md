@@ -9,6 +9,7 @@
 
 | 我想要… | 去哪找 |
 |---------|--------|
+| 查冻结基线的回测结果 | `runs/train_valid/20260529_034947__frozen_baseline_icir_topn50_ew/reports/self_check.md` |
 | 知道项目现在进展到哪了 | `docs/FILE_GUIDE.md` Part 1 |
 | 读懂项目设计决策 | `docs/PROJECT_PLAN_v1.1.md` |
 | 运行一个新实验 | `docs/RESEARCH_GUIDE.md` → `scripts/run_experiment.py` |
@@ -104,9 +105,10 @@
 
 | 文件 | 干什么 |
 |------|--------|
-| `ic_analysis.py` | Rank IC 测试。计算 IC 时序、IC_IR、t 统计量、BH 多重检验校正。正向收益用 T+1 开盘价 |
+| `ic_analysis.py` | Rank IC 测试。计算 IC 时序、IC_IR、t 统计量、BH 多重检验校正；`build_ic_history()` 输出 date×factor IC 历史矩阵 |
 | `quintile_backtest.py` | 五分组等权回测。验证因子是否有单调分层效应 |
 | `shift_test.py` | 时间位移测试。因子滞后一期后 IC 应该显著下降，否则警告未来数据泄漏 |
+| `factor_health.py` | **因子健康监控**。基于 IC 历史矩阵和因子方向，计算 12/24/36m 滚动 IC_IR，输出 STABLE/WEAK/WARN/REVERSE/UNKNOWN 状态和 DETERIORATING 趋势预警 |
 
 ---
 
@@ -184,7 +186,9 @@
 
 | 脚本 | 干什么 |
 |------|--------|
-| `run_factor_evaluation.py` | 批量单因子评价（IC 测试 + 五分组 + 移位测试）|
+| `run_factor_evaluation.py` | 批量单因子评价（IC 测试 + 五分组 + 移位测试）；同时输出 4 个 IC 历史矩阵 parquet 供健康监控使用 |
+| `run_factor_health.py` | **因子健康监控**。读取 `ic_history_final_research.parquet` 和 `factor_summary.csv`，生成 `health_snapshot.csv`、`health_report.md`、`health_panel.png` |
+| `diagnose_piotroski.py` | **piotroski_f 专项诊断**。输出分期 IC_IR、7 个分项 IC、行业分层 IC；结论写入 `check/0529/piotroski_diagnosis.md` |
 | `run_signal_combination.py` | 单独测试信号合成（不跑完整流水线）|
 | `run_portfolio_optimization.py` | 单独测试组合优化器 |
 | `run_backtest.py` | 单独回放回测（可复用已有权重）|
@@ -220,14 +224,15 @@
 
 | 文件 | 实验内容 | 状态 |
 |------|---------|------|
-| `baseline_expanding_ridge_te6_lam0050.py` | 扩展窗口 Ridge 信号，TE=6%，λ=0.005 | 主基线（已完成）|
-| `baseline_icir_te6_lam0050.py` | IC_IR 加权信号，TE=6%，λ=0.005 | 已完成（IR=0.402）|
-| `challenger_rolling36_te6_lam0050.py` | 滚动 36 个月窗口 Ridge | 已完成（IR=0.966）|
-| `challenger_rolling48_te6_lam0050.py` | 滚动 48 个月窗口 Ridge | 已完成（IR=1.489，当前最优）|
-| `challenger_rolling60_te6_lam0050.py` | 滚动 60 个月窗口 Ridge | 已完成（IR=1.176）|
-| `challenger_decay_ridge_hl24_te6_lam0050.py` | 指数衰减 Ridge，半衰期 24m | 待实现（`ridge_decay.py` 未写）|
-| `challenger_decay_ridge_hl36_te6_lam0050.py` | 指数衰减 Ridge，半衰期 36m | 待实现 |
-| `challenger_decay_ridge_hl48_te6_lam0050.py` | 指数衰减 Ridge，半衰期 48m | 待实现 |
+| `frozen_baseline_icir_topn50_ew.py` | ICIR加权 + TopN=50等权，**无 QP** | **冻结基线（永不修改；方法与下方 Ridge+QP 实验不同，IR 不可直接比较）** |
+| `baseline_expanding_ridge_te6_lam0050.py` | 扩展窗口 Ridge + **QP**，TE=6%，λ=0.005 | **已晋升主线**（mainline.json，IR=0.408；消融/挑战者的对比基准）|
+| `baseline_icir_te6_lam0050.py` | IC_IR 加权信号 + QP，TE=6%，λ=0.005 | 已完成（IR=0.402）|
+| `challenger_rolling36_te6_lam0050.py` | 滚动 36 个月窗口 Ridge + QP | 已完成（IR=0.966）|
+| `challenger_rolling48_te6_lam0050.py` | 滚动 48 个月窗口 Ridge + QP | 已完成（IR=1.489，当前最优）|
+| `challenger_rolling60_te6_lam0050.py` | 滚动 60 个月窗口 Ridge + QP | 已完成（IR=1.176）|
+| `challenger_decay_ridge_hl24_te6_lam0050.py` | 指数衰减 Ridge + QP，半衰期 24m | 已完成（IR=0.626，优于已晋升主线）|
+| `challenger_decay_ridge_hl36_te6_lam0050.py` | 指数衰减 Ridge + QP，半衰期 36m | 已完成（IR=0.295，低于已晋升主线，待诊断）|
+| `challenger_decay_ridge_hl48_te6_lam0050.py` | 指数衰减 Ridge + QP，半衰期 48m | 已完成（IR=0.289，低于已晋升主线，待诊断）|
 
 **命名规范**：`<类型>_<核心变量>_te<TE档位>_lam<lambda×1000>`
 

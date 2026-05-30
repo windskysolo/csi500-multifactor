@@ -39,7 +39,11 @@ sys.path.insert(0, str(_ROOT))
 
 from src import config as cfg
 from src.portfolio.covariance import estimate_covariance_lw, validate_and_repair_covariance
-from src.portfolio.optimizer import OptimizeConfig, optimize_single_period
+from src.portfolio.optimizer import (
+    OptimizeConfig,
+    optimize_single_period,
+    optimize_topn_equal_weight_all_periods,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -129,6 +133,7 @@ def main(
     output_dir: Optional[Path] = None,
     cov_cache_dir: Optional[Path] = None,
     optimizer_config: Optional[OptimizeConfig] = None,
+    optimizer_mode: str = "qp",
 ) -> None:
     """
     Args:
@@ -137,10 +142,16 @@ def main(
         output_dir:       run 根目录；None 输出到旧默认路径（data/processed/）。
         cov_cache_dir:    协方差缓存目录；None 使用 data/processed/cov_cache/。
         optimizer_config: 优化器配置；None 使用 cfg 中的默认值。
+        optimizer_mode:   "qp" 走 L1/L2/L3；"topn_ew" 跳过 QP，强制使用 L3 约束感知等权。
     """
     _signal_path, _w_opt, _w_bl, _w_meta, _cov_dir = _resolve_paths(
         signal_path, output_dir, cov_cache_dir
     )
+    valid_modes = {"qp", "topn_ew", "l2_forced"}
+    if optimizer_mode not in valid_modes:
+        raise ValueError(
+            f"optimizer_mode must be one of {sorted(valid_modes)}, got: {optimizer_mode!r}"
+        )
     _opt_config = optimizer_config or OptimizeConfig(
         te_target_annual  = cfg.OPT_TE_TARGET_ANNUAL,
         industry_max_dev  = cfg.OPT_INDUSTRY_MAX_DEV,
@@ -152,6 +163,7 @@ def main(
 
     log.info("=" * 60)
     log.info("组合优化（训练/验证期 %s ~ %s）", cfg.TRAIN_START.date(), cfg.VALID_END.date())
+    log.info("组合模式: %s", optimizer_mode)
     log.info("=" * 60)
 
     if not _signal_path.exists():
@@ -208,6 +220,95 @@ def main(
             industry_dict[T] = industry_pivot.loc[ind_dates[-1]].dropna()
         else:
             industry_dict[T] = pd.Series(dtype=object)
+
+    if optimizer_mode == "l2_forced":
+        log.info("l2_forced 模式：跳过协方差估计，直接进入 L2（线性约束，无 TE 二次项）路径")
+        _opt_config.force_l2 = True
+        opt_weights_l2:  dict = {}
+        baseline_weights_l2: dict = {}
+        meta_rows_l2: list = []
+        w_prev_l2: pd.Series | None = None
+        t_l2 = time.perf_counter()
+        for i, T in enumerate(available_dates):
+            w_b    = benchmark_weights_dict[T]
+            codes  = list(w_b.index)
+            alpha  = composite_signal.loc[T].reindex(codes) if T in composite_signal.index else pd.Series(0.0, index=codes)
+            w_prev_aligned = w_prev_l2.reindex(codes) if w_prev_l2 is not None else None
+            result = optimize_single_period(
+                alpha          = alpha,
+                w_b            = w_b,
+                cov            = np.eye(len(codes)) * 1e-4,   # L2 不使用协方差（force_l2 跳过 L1）
+                industry_map   = industry_dict.get(T, pd.Series(dtype=object)),
+                w_prev         = w_prev_aligned,
+                halt_codes     = halt_dict.get(T, set()),
+                limit_up_codes = limit_up_dict.get(T, set()),
+                limit_dn_codes = limit_dn_dict.get(T, set()),
+                config         = _opt_config,
+            )
+            opt_weights_l2[T]      = result.weights
+            w_prev_l2              = result.weights
+            baseline_weights_l2[T] = _compute_baseline(alpha, halt_dict.get(T, set()), codes, topn=_opt_config.topn)
+            meta_rows_l2.append({
+                "rebalance_date":      T,
+                "fallback_level":      result.fallback_level,
+                "solver_status":       result.solver_status,
+                "solve_time_s":        result.solve_time_s,
+                "cov_available":       False,
+                "w_prev_source":       "target_weight",
+                "constraint_compliant": result.constraint_compliant,
+                "optimizer_mode":       "l2_forced",
+            })
+            if (i + 1) % 20 == 0 or (i + 1) == len(available_dates):
+                log.info("l2_forced 进度: %d/%d  用时: %.1fs", i + 1, len(available_dates), time.perf_counter() - t_l2)
+        weights_panel  = pd.DataFrame(opt_weights_l2).T.fillna(0.0)
+        baseline_panel = pd.DataFrame(baseline_weights_l2).T.fillna(0.0)
+        weights_panel.index.name  = "rebalance_date"
+        baseline_panel.index.name = "rebalance_date"
+        weights_panel.columns  = weights_panel.columns.astype(str)
+        baseline_panel.columns = baseline_panel.columns.astype(str)
+        meta_df = pd.DataFrame(meta_rows_l2).set_index("rebalance_date")
+        meta_df.index = pd.DatetimeIndex(meta_df.index)
+        weights_panel.to_parquet(_w_opt)
+        baseline_panel.to_parquet(_w_bl)
+        meta_df.to_parquet(_w_meta)
+        log.info("l2_forced 权重已写入: target=%s meta=%s", weights_panel.shape, meta_df.shape)
+        log.info("=" * 60)
+        log.info("组合阶段完成")
+        log.info("=" * 60)
+        return
+
+    if optimizer_mode == "topn_ew":
+        log.info("topn_ew 模式：跳过协方差估计和 QP，复用 L3 约束感知 TopN 等权路径")
+        weights_panel, meta_df = optimize_topn_equal_weight_all_periods(
+            composite_panel=composite_signal,
+            benchmark_weights=benchmark_weights_dict,
+            rebalance_dates=available_dates,
+            config=_opt_config,
+            halt_dict=halt_dict,
+            limit_up_dict=limit_up_dict,
+            limit_dn_dict=limit_dn_dict,
+        )
+
+        # In frozen-baseline mode the target itself is the baseline. Keeping
+        # both artifacts identical avoids running an unchecked auxiliary V1 path.
+        baseline_panel = weights_panel.copy()
+        weights_panel.to_parquet(_w_opt)
+        baseline_panel.to_parquet(_w_bl)
+        meta_df.to_parquet(_w_meta)
+
+        n_bad = int((~meta_df["constraint_compliant"]).sum()) if not meta_df.empty else 0
+        out_label = str(output_dir) if output_dir else str(cfg.DATA_PROC)
+        log.info(
+            "topn_ew 权重已写入: target=%s baseline=%s meta=%s noncompliant=%d",
+            weights_panel.shape,
+            baseline_panel.shape,
+            meta_df.shape,
+            n_bad,
+        )
+        log.info("=" * 60)
+        log.info("组合阶段完成，输出到 %s", out_label)
+        log.info("=" * 60)
+        return
 
     # 协方差估计（带缓存）
     _cov_dir.mkdir(exist_ok=True)
@@ -310,6 +411,7 @@ def main(
             "cov_available":       cov_available,
             "w_prev_source":       "target_weight",
             "constraint_compliant": result.constraint_compliant,  # F6-001
+            "optimizer_mode":       "qp",
         })
 
         if (i + 1) % 10 == 0 or (i + 1) == len(available_dates):
@@ -382,10 +484,15 @@ if __name__ == "__main__":
         "--cov-cache-dir", type=Path, default=None,
         help="协方差缓存目录；不传则使用 data/processed/cov_cache/",
     )
+    parser.add_argument(
+        "--optimizer-mode", choices=["qp", "topn_ew"], default="qp",
+        help="组合模式：qp=完整 L1/L2/L3；topn_ew=跳过 QP，强制 TopN 等权",
+    )
     args = parser.parse_args()
     main(
         rebuild_cov=args.rebuild_cov,
         signal_path=args.signal_path,
         output_dir=args.output_dir,
         cov_cache_dir=args.cov_cache_dir,
+        optimizer_mode=args.optimizer_mode,
     )

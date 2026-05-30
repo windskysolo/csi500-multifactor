@@ -51,6 +51,7 @@ from src.evaluation.ic_analysis import (
     batch_ic_test,
     batch_ic_decay,
     build_exit_date_map,
+    build_ic_history,
     compute_ic_series,
     compute_forward_returns,
     compute_factor_correlation,
@@ -809,6 +810,72 @@ def run_evaluation(
 
     final_factors = summary[summary["final_include"]].index.tolist()
     excluded      = summary[~summary["final_include"]].index.tolist()
+
+    # 11.5 IC 历史矩阵持久化
+    # 分别输出训练期、验证期、训练+验证研究诊断期，以及最终入模因子子集
+    # 注意：验证期 IC 仅供诊断，不允许回流至因子筛选逻辑
+    log.info("构建 IC 历史矩阵并持久化...")
+    all_factor_names = list(factor_panels.keys())
+    ic_history_train_all = build_ic_history(
+        train_panels, train_fwd,
+        factor_names=all_factor_names,
+        min_coverage=IC_COVERAGE_MIN,
+    )
+    ic_history_valid_all = build_ic_history(
+        valid_panels, valid_fwd,
+        factor_names=all_factor_names,
+        min_coverage=IC_COVERAGE_MIN,
+    )
+    ic_history_research_all = pd.concat(
+        [ic_history_train_all, ic_history_valid_all]
+    ).sort_index()
+    ic_history_research_all.index.name = "rebalance_date"
+
+    # final_factors 子集（健康监控默认输入）
+    if final_factors:
+        ic_history_final_research = ic_history_research_all[final_factors].copy()
+    else:
+        ic_history_final_research = pd.DataFrame(
+            index=ic_history_research_all.index, dtype="float64"
+        )
+        ic_history_final_research.index.name = "rebalance_date"
+
+    # 写出 parquet
+    ic_history_train_all.to_parquet(output_dir / "ic_history_train_all.parquet")
+    ic_history_valid_all.to_parquet(output_dir / "ic_history_valid_all.parquet")
+    ic_history_research_all.to_parquet(output_dir / "ic_history_research_all.parquet")
+    ic_history_final_research.to_parquet(output_dir / "ic_history_final_research.parquet")
+
+    # 覆盖率不足因子（有效 IC 占比 < 80%）披露在 metadata 中
+    low_coverage = [
+        name for name in all_factor_names
+        if ic_history_research_all[name].notna().mean() < 0.8
+    ]
+    ic_history_metadata = {
+        "train_start": str(cfg.TRAIN_START.date()),
+        "train_end":   str(cfg.TRAIN_END.date()),
+        "valid_start": str(cfg.VALID_START.date()),
+        "valid_end":   str(cfg.VALID_END.date()),
+        "n_dates_train":    len(ic_history_train_all),
+        "n_dates_valid":    len(ic_history_valid_all),
+        "n_dates_research": len(ic_history_research_all),
+        "n_factors_all":    len(all_factor_names),
+        "n_factors_final":  len(final_factors),
+        "includes_validation": True,
+        "coverage_note": "验证期数据仅用于诊断，不允许回流至筛选逻辑",
+        "low_coverage_factors": low_coverage,
+        "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    with open(output_dir / "ic_history_metadata.json", "w", encoding="utf-8") as fh:
+        json.dump(ic_history_metadata, fh, ensure_ascii=False, indent=2)
+
+    log.info(
+        "IC 历史矩阵已保存：train=%s  valid=%s  research=%s  final=%s",
+        ic_history_train_all.shape, ic_history_valid_all.shape,
+        ic_history_research_all.shape, ic_history_final_research.shape,
+    )
+    if low_coverage:
+        log.warning("IC 历史覆盖率 < 80%% 的因子（%d 个）：%s", len(low_coverage), low_coverage)
 
     # 12. 导出
     display_cols = ["n", "ic_mean", "ic_std", "ic_ir", "t_stat", "p_value_bh",

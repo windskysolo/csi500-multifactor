@@ -1,0 +1,318 @@
+# P2 — Stage 编排逻辑 `src/pipeline/stages.py`
+
+---
+
+## 一、文件定位
+
+```
+所属 Part  : Layer 8（Pipeline 编排层）
+在数据流中 : ExperimentSpec → stages.py → src/signal/ src/portfolio/ src/backtest/
+被谁调用   : scripts/run_experiment.py（训练/验证集主入口）
+             scripts/run_test_pipeline.py（测试集，部分直接调用）
+调用谁     : src/signal/combiner.py / src/signal/ridge_decay.py
+             experiments/legacy/ridge_signal/ridge_combiner.py
+             experiments/legacy/ridge_rolling/rolling_combiner.py
+             src/portfolio/optimizer.py（通过 run_portfolio_optimization.py）
+             src/backtest/engine.py（通过 run_backtest.py）
+             src/evaluation/ic_analysis.py
+             src/config.py
+```
+
+**实际行数：501 行**（PLAN.md 快照为 407 行，已更新）。
+
+`stages.py` 是 Pipeline 层的**业务编排者**，而不是业务实现者：它负责"选哪条路径、把哪些文件传给谁、产物写到哪里"，底层的金融计算逻辑仍在 `src/` 各模块里。
+
+---
+
+## 二、时间对齐与 PIT 假设
+
+Stage 函数本身不处理原始财务数据，但它控制了时间边界的传递：
+
+- `_run_signal_icir` / `_run_signal_ridge`：过滤 `all_dates[all_dates <= cfg.VALID_END]`，只处理训练/验证期数据（`cfg.VALID_END = 2022-12-31`）
+- `run_portfolio_stage` / `run_backtest_stage`：隐式依赖 `signal_path` 指向的信号文件的时间范围
+
+测试集路径（`run_test_pipeline.py`）不通过 `stages.py` 运行，而是直接调用底层函数，使用 `cfg.TEST_START ~ cfg.TEST_END` 的范围。
+
+---
+
+## 三、模块顶部
+
+```python
+"""
+src/pipeline/stages.py — 实验各阶段的编排包装层
+
+stage 函数不重写金融逻辑，只负责：
+  1. 根据 spec 选择正确的实现
+  2. 把输入/输出路径对齐到 artifact contract
+  3. 捕获失败并抛出带上下文的异常
+"""
+```
+
+> ⚠️ **已知 docstring 漂移**（L38-39）：模块文档字符串中写有：
+> `"ridge" + "decay_weighted_expanding" — 尚未实现，抛出 NotImplementedError`
+> **实际上已实现**（L175-184），通过 `RidgeDecayCombiner` 接入。这是一处**过时注释**，
+> 建议将 L38-39 修改为 `"ridge" + "decay_weighted_expanding" — 指数衰减加权 Ridge（RidgeDecayCombiner）`。
+
+---
+
+## 四、核心函数逐一解析
+
+### 4.1 `run_signal_stage(spec, run_dir, data_proc=None)` — 信号阶段（L27-61）
+
+**入口分发**：
+
+```python
+method = sig.method
+mode   = sig.training_mode
+
+if method == "icir":
+    return _run_signal_icir(sig, signal_dir, _data_proc, spec)
+elif method == "ridge":
+    return _run_signal_ridge(sig, signal_dir, _data_proc, spec, mode)
+else:
+    raise ValueError(f"未知的信号方法: '{method}'。支持: 'icir', 'ridge'")
+```
+
+三条信号路径及其实际调用链：
+
+| method | training_mode | 实际调用 | 模块位置 |
+|---|---|---|---|
+| `"icir"` | — | `build_composite_panel(method="ic_ir")` | `src/signal/combiner.py` |
+| `"ridge"` | `"expanding"` | `RidgeCombiner` | `experiments/legacy/ridge_signal/ridge_combiner.py` |
+| `"ridge"` | `"rolling"` | `RidgeRollingCombiner` | `experiments/legacy/ridge_rolling/rolling_combiner.py` |
+| `"ridge"` | `"decay_weighted_expanding"` | `RidgeDecayCombiner` | `src/signal/ridge_decay.py` |
+
+**注意**：`expanding` 和 `rolling` 两个 Ridge 模式从 `experiments/legacy/` 导入（历史实现），只有 `decay_weighted_expanding` 使用 `src/signal/ridge_decay.py`（新增正式实现）。
+
+**输出产物**（写到 `run_dir/signal/`）：
+
+| 文件 | 内容 | 谁生成 |
+|---|---|---|
+| `composite.parquet` | 合成信号面板（date × ts_code，值为 alpha 分数）| 所有路径 |
+| `ic_detail.parquet` | 每个因子的 IC 时间序列 | icir 路径 |
+| `weight_history.parquet` | IC_IR 权重历史（date × factor）| icir 路径 |
+| `coef_history.parquet` | Ridge 系数历史（date × factor）| ridge 路径 |
+| `signal_metadata.json` | 方法/因子数/调仓日数/cold_start_count 等元数据 | 所有路径 |
+
+---
+
+### 4.2 `_run_signal_icir` — IC_IR 路径详解（L64-135）
+
+**因子加载**：调用 `_load_factor_panels(panel_dir, eval_dir, exclude_factors=...)`，从 `final_factors.json` 过滤已通过评估的因子；若文件不存在，警告后使用全部因子。
+
+**stability_weights**：如果 `final_factors.json` 里有 `stability_weights` 字段，会传给 `build_composite_panel`，在 IC_IR 基础上再乘以稳定性权重（用于 smoother 信号合成）。
+
+**cold_start 处理**：前 `SIGNAL_MIN_IC_HISTORY=12` 个月没有足够 IC 历史时，`build_composite_panel` 返回全 NaN 信号（cold start），`diagnostics["cold_start_count"]` 记录这些期数。这些期不产生持仓。
+
+---
+
+### 4.3 `_run_signal_ridge` — Ridge 路径详解（L138-219）
+
+```python
+if mode == "rolling":
+    combiner = RidgeRollingCombiner(
+        window_months = sig.window_months,   # 如 48
+        ...
+    )
+elif mode == "decay_weighted_expanding":
+    from src.signal.ridge_decay import RidgeDecayCombiner
+    combiner = RidgeDecayCombiner(
+        half_life_months = sig.half_life_months,   # 如 24
+        ...
+    )
+elif mode == "expanding":
+    combiner = RidgeCombiner(...)
+```
+
+所有三种 combiner 都调用相同接口：
+```python
+combiner.select_alpha_walk_forward(tv_panels, fwd_ret_panel, tv_dates)
+composite = combiner.build_ridge_panel(tv_panels, fwd_ret_panel, tv_dates)
+```
+
+**`coef_history_`**：Ridge combiner 的属性，记录每个调仓日的因子系数，写入 `signal/coef_history.parquet`。这是排查"哪些因子被模型重视"的关键产物。
+
+---
+
+### 4.4 `run_portfolio_stage(spec, run_dir, signal_path, data_proc=None)` — 组合优化阶段（L226-271）
+
+```python
+optimizer_config = OptimizeConfig(
+    te_target_annual  = opt.te_target_annual,
+    industry_max_dev  = opt.industry_max_dev,
+    single_max_dev    = opt.single_max_dev,
+    turnover_lambda   = opt.turnover_lambda,
+    topn              = opt.topn,
+    max_solve_seconds = 30.0,
+)
+optimizer_mode = getattr(opt, "optimizer_mode", "qp")
+
+portfolio_main(
+    signal_path      = signal_path,
+    output_dir       = run_dir,
+    cov_cache_dir    = _data_proc / "cov_cache",
+    optimizer_config = optimizer_config,
+    optimizer_mode   = optimizer_mode,
+)
+```
+
+**`optimizer_mode` 在此处传给 `portfolio_main`**，由后者决定是调 QP 优化器还是 TopN 等权路径。
+
+**输出产物**（写到 `run_dir/portfolio/`）：
+
+| 文件 | 内容 |
+|---|---|
+| `target_weights.parquet` | 每期优化后的目标权重（V2，含约束）|
+| `baseline_weights.parquet` | 每期 TopN 等权基准权重（V1，无约束）|
+| `optimizer_meta.parquet` | 每期 fallback_level / solver_status / solve_time_s |
+
+---
+
+### 4.5 `run_backtest_stage(spec, run_dir, data_proc=None)` — 回测阶段（L278-307）
+
+从 `run_dir/portfolio/` 读取权重，调用 `run_backtest.main()`，输出到 `run_dir/backtest/`：
+
+| 文件 | 内容 |
+|---|---|
+| `nav_valid.parquet` | 每日 NAV（strategy_v1 / strategy_v2 / benchmark）|
+| `metrics_valid.parquet` | 汇总指标（v1 / v2 两列）|
+| `trades_valid.parquet` | 每期交易记录（买卖金额 / 换手率）|
+| `actual_weights_valid.parquet` | 实际持仓权重（成交后）|
+
+---
+
+### 4.6 `write_self_check_md(spec, run_dir)` — 自检报告生成（L356-489）
+
+**这是 Stage 函数之外最重要的辅助函数**，在 `run_experiment.py` 的 backtest 阶段完成后自动调用：
+
+```python
+# 从 backtest/metrics_valid.parquet 读取指标
+ir        = float(v2.get("information_ratio", nan))
+excess_r  = float(v2.get("excess_return", nan))
+mdd       = float(v2.get("excess_max_drawdown", nan))
+te        = float(v2.get("tracking_error", nan))
+win_rate  = float(v2.get("monthly_win_rate", nan))
+
+# 年化换手率从 trades_valid.parquet 计算
+total_to = ((buy_value + sell_value) / portfolio_value_before).sum()
+annual_to_pct = total_to / n_months * 12 * 100
+
+# 三项硬指标判断
+ir_pass  = not nan(ir) and ir >= 0.5
+mdd_pass = not nan(mdd) and abs(mdd) <= 0.10
+to_pass  = not nan(to) and 500 <= to <= 1500
+```
+
+输出的 `reports/self_check.md` 包含：
+1. 验证期六项指标（IR / 年化超额 / 超额MDD / TE / 月胜率）
+2. 硬指标 PASS/FAIL 三行
+3. 关键产物存在性清单
+4. Spec 规格摘要（method / training_mode / te_target / topn / optimizer_mode）
+
+`reports/self_check.md` 是晋升前必须存在的文件（`registry._validate_promotion` 检查），是 `run_experiment.py` 流程的最后一步。
+
+---
+
+## 五、内部辅助函数
+
+| 函数 | 说明 |
+|---|---|
+| `_load_factor_panels(panel_dir, eval_dir, exclude_factors)` | 加载因子面板，按 final_factors.json 过滤 |
+| `_load_fwd_ret(fwd_path, valid_end)` | 加载 forward return 面板，截断到 valid_end |
+| `_write_signal_metadata(signal_dir, spec, extra)` | 写入 signal_metadata.json |
+
+**`_load_factor_panels` 的两级过滤**（L314-341）：
+1. 按 `final_factors.json` 选出通过评估的因子（如果文件不存在则警告并使用全部）
+2. 按 `exclude_factors` 进一步剔除（消融实验用，在第一级过滤后再执行）
+
+---
+
+## 六、落盘产物
+
+`stages.py` 通过调用底层模块写入以下目录（不直接使用 file I/O，通过被调用模块写入）：
+
+```
+run_dir/
+  signal/
+    composite.parquet         # 所有信号路径
+    ic_detail.parquet         # icir 路径
+    weight_history.parquet    # icir 路径
+    coef_history.parquet      # ridge 路径
+    signal_metadata.json      # 所有路径
+  portfolio/
+    target_weights.parquet
+    baseline_weights.parquet
+    optimizer_meta.parquet
+  backtest/
+    nav_valid.parquet
+    metrics_valid.parquet
+    trades_valid.parquet
+    actual_weights_valid.parquet
+  reports/
+    self_check.md             # write_self_check_md 写入
+```
+
+---
+
+## 七、相关测试
+
+- `tests/test_pipeline_contracts.py`：间接覆盖（通过 spec 传入）
+- 建议补充：
+  - 各信号路径的 unit test（mock `build_composite_panel`，验证产物文件被写入）
+  - `write_self_check_md` 在 `metrics_valid.parquet` 缺失时的降级行为（写占位文件）
+
+---
+
+## 八、失败与降级路径
+
+| 场景 | 行为 |
+|---|---|
+| `method` 非法 | `run_signal_stage` 抛 `ValueError` |
+| `training_mode="rolling"` 但 `window_months=None` | `_run_signal_ridge` 抛 `ValueError` |
+| `training_mode="decay_..."` 但 `half_life_months=None` | 抛 `ValueError` |
+| 因子面板目录为空 | `_load_factor_panels` 抛 `FileNotFoundError` |
+| `fwd_ret_panel.parquet` 不存在 | `_load_fwd_ret` 抛 `FileNotFoundError` |
+| portfolio/backtest 阶段失败 | 异常向上传播到 `run_experiment.py`，写 `RUN_FAILED.json` |
+| `write_self_check_md` 失败 | 只记录警告，不阻断（run 已完成，只是报告写不出来）|
+| `metrics_valid.parquet` 不存在 | `write_self_check_md` 写占位 markdown（标注文件缺失）|
+
+---
+
+## 九、数据流图
+
+```
+ExperimentSpec.signal.method / training_mode
+    ↓ run_signal_stage 分发
+    ├── "icir"                → build_composite_panel(ic_ir)
+    │                           ↓ signal/composite.parquet + ic_detail + weight_history
+    ├── "ridge" + "expanding" → RidgeCombiner（experiments/legacy/）
+    │                           ↓ signal/composite.parquet + coef_history
+    ├── "ridge" + "rolling"   → RidgeRollingCombiner（experiments/legacy/）
+    │                           ↓ signal/composite.parquet + coef_history
+    └── "ridge" + "decay_..."→ RidgeDecayCombiner（src/signal/ridge_decay）
+                                ↓ signal/composite.parquet + coef_history
+
+signal/composite.parquet
+    ↓ run_portfolio_stage（optimizer_mode: qp/topn_ew/l2_forced）
+    ↓ portfolio/target_weights.parquet + baseline_weights + optimizer_meta
+
+portfolio/target_weights.parquet
+    ↓ run_backtest_stage
+    ↓ backtest/nav_valid.parquet + metrics_valid + trades_valid
+
+backtest/metrics_valid.parquet + trades_valid.parquet
+    ↓ write_self_check_md
+    ↓ reports/self_check.md（含 PASS/FAIL 硬指标）
+```
+
+---
+
+## 十、领域知识补充
+
+**为何 Ridge expanding/rolling 在 `experiments/legacy/` 而 decay 在 `src/signal/`？**
+
+项目演进历史：`expanding` 和 `rolling` Ridge 是早期在 `experiments/` 目录下探索的实现，功能验证后由于工程规范原因未移入 `src/`（legacy 代码）。`RidgeDecayCombiner` 是后期新增的设计，直接在 `src/signal/ridge_decay.py` 中按正式工程规范实现。两者的接口（`select_alpha_walk_forward` + `build_ridge_panel`）一致，可以互换使用，但来源目录不同反映了实现时间和工程成熟度的差异。长期来看，`expanding/rolling` 的实现应迁移到 `src/signal/` 下，但当前不是阻塞性问题。
+
+**`write_self_check_md` 在 `RUN_FINISHED.json` 之后生成的原因**：
+
+自检报告中有"产物清单"（artifact checklist），需要检查 `manifest.json`、`RUN_FINISHED.json` 等是否存在。如果在 `RUN_FINISHED.json` 写入之前生成报告，清单里必然显示这些文件不存在，造成误导。因此 `run_experiment.py` 的调用顺序是：写 `manifest.json` → 写 `RUN_FINISHED.json` → 再写 `self_check.md`。

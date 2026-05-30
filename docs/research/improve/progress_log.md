@@ -1281,3 +1281,174 @@ IR 随 λ 变化：0.422 → 0.405 → **0.483** → 0.470 → 0.450
 | O2 配置放松后跟踪误差是否满足合规要求 | 中 | 待阶段 1 实验 |
 | 换手惩罚 lambda 过大导致组合退化为纯跟踪 | 中 | 待阶段 2 校准 |
 | 因子池扩展后相关性去重是否需要重新运行 | 低 | 自动包含在评估流程中 |
+
+
+---
+
+## 阶段 N — EW-Ridge（指数衰减 Ridge）实验
+
+**状态**：✅ 完成  
+**执行日期**：2026-05-28  
+**目标**：验证指数衰减加权 Ridge（EW-Ridge）是否能在 expanding 和 rolling 之间取得更好的效果。
+
+### 实现内容
+
+- 新增 `src/signal/ridge_decay.py`（`RidgeDecayCombiner`，继承 `RidgeCombiner`）
+- 新增 `tests/test_ridge_decay.py`（14 个单元测试，全部通过）
+- 修改 `src/pipeline/stages.py`：补全 `decay_weighted_expanding` 分支，消除 `NotImplementedError`
+- 新增 `conftest.py` 和 `tests/__init__.py` 以支持 pytest
+
+### 实验结果（验证期 2021-2022，V2 优化权重）
+
+| 方案 | IR | 结论 |
+|------|---:|------|
+| expanding（基线）| 0.408 | baseline |
+| decay hl=24m | 0.626 | 优于基线，PASS ✅ |
+| decay hl=36m | 0.295 | 差于基线，FAIL ❌ |
+| decay hl=48m | 0.289 | 差于基线，FAIL ❌ |
+| rolling-48m（最优）| 1.489 | 当前最优 |
+
+### 关键发现
+
+rolling 硬截断远优于指数衰减。原因假说：2012-2018 年的因子逻辑（质量因子有效）与 2021-2022 年（反质量环境）存在结构性差异，EW-Ridge 指数衰减保留了这些"有害"历史信息，而 rolling 的硬截断完全丢弃了它们。
+
+### 待跟进
+
+- 系数稳定性诊断：对比 rolling-48m 与 decay-hl24 的 `coef_history.parquet`，确认上述假说
+- 阶段二（贝叶斯 Ridge）：前提满足（hl24 优于 expanding），可根据诊断结论决定是否继续
+
+详细结论见 `current work/exp_decay_ridge_results.md`。
+
+---
+
+## 阶段 N+1 — 冻结基线建立
+
+**状态**：✅ 完成  
+**执行日期**：2026-05-29  
+**目标**：建立不可变对照锚点，防止实验横向比较基准随主基线晋升而漂移。
+
+### 内容
+
+- 新增 `OptimizerSpec.optimizer_mode` 字段，支持 `"qp"`（默认，向后兼容）和 `"topn_ew"` 两种模式
+- 新增 `optimize_topn_equal_weight_all_periods()`（`src/portfolio/optimizer.py`），复用 L3 约束感知等权逻辑（含停牌锁定、涨跌停约束、合规检查）
+- `scripts/run_portfolio_optimization.py`：topn_ew 分支跳过协方差估计和 QP 循环，`target_weights == baseline_weights`
+- 新增 `configs/pipelines/frozen_baseline_icir_topn50_ew.py` Spec 文件
+- 单元测试：`test_pipeline_contracts.py`（5 个新测试）、`test_optimizer.py`（2 个新测试），共 39/39 通过
+
+### 实验结果（验证期 2021-2022）
+
+| 指标 | 值 | 结论 |
+|------|---:|------|
+| 信息比率 IR | **0.924** | PASS ✅（≥0.5）|
+| 年化超额收益 | +6.24% | — |
+| 超额最大回撤 | -7.48% | PASS ✅（≤10%）|
+| 跟踪误差（年化）| 6.75% | — |
+| 月度胜率 | 60.9% | — |
+| 年化双边换手 | 886% | PASS ✅（500-1500%）|
+
+run_id：`20260529_034947__frozen_baseline_icir_topn50_ew`
+
+### 关键发现
+
+冻结基线（无 QP，ICIR 加权 + TopN=50 等权）IR=0.924，**显著高于当前主基线 QP 优化器（IR=0.408）**。  
+QP 优化器对信号存在约 55% 的 IR 衰减，而非增益。原因假说：TE 约束 + 换手惩罚联合过度截断主动仓位表达，net alpha 被成本侵蚀殆尽。后续需专门诊断优化器贡献。
+
+### 注册与文档更新
+
+- `registry/challengers.json`：frozen_baseline 注册为第一条，`status="frozen_baseline"`
+- `CLAUDE.md` §1.1：新增冻结基线 IR 字段；§6.0 新增 compare_runs 纪律
+- `docs/RESEARCH_GUIDE.md`：§六实验状态表（首行）、§八命名类型、§九禁止事项
+- `docs/FILE_MAP.md`：快速定位表、configs/pipelines/ 表
+- `docs/guides/improvement_guide.md`：路线图前说明框
+
+---
+
+## 阶段 N+2 — TC 诊断回填：信号转化损耗量化
+
+**状态**：✅ 完成  
+**执行日期**：2026-05-30  
+**目标**：通过 Transfer Coefficient（TC）体系，量化"信号层 ICIR 高但组合 IR 低"的传导断层，从数据上确认根因假说（「信号基数 vs 序数」）。
+
+### 背景
+
+已有实验数据存在两个悖论：
+
+1. **同信号、不同持仓**：ICIR expanding 信号，TopN50 EW IR=0.924 vs QP TE=6% IR=0.402，超额 IR 差距 2.3×
+2. **不同信号、同 QP**：Expanding Ridge 验证期 IC_IR=0.628（四种信号中最高），QP IR=0.408（四种 QP 中最低）；Rolling48 验证期 IC_IR=0.348（最低），QP IR=1.489（最高）。IC_IR 越高的信号，QP 持仓 IR 反而越低。
+
+本次通过 `SignalToPositionDiagnostics` 量化 TC / truncation_loss / ir_loss_pct，确认根因机制。
+
+### 方法
+
+- 新建 `scripts/backfill_signal_quality.py`，对 12 个已有 run 补跑 TC 诊断（1 个冻结基线跳过，11 个新生成）
+- 信号文件来源：优先 `signal/composite.parquet`，不存在时通过 `inputs.lock.json` 溯源至原始信号 run
+- 输出：每个 run 的 `reports/signal_quality_report.json`
+- compare_runs 分两组运行（Group A：7 run；Group B/C/D：7 run），均含冻结基线作为下限参照
+
+### Group A 结果（ICIR Expanding 信号，同一信号的不同持仓方式对比）
+
+| 持仓方式 | 超额 IR | TC | truncation | ir_loss | N_eff | ir_actual（原始 Sharpe）|
+|---------|--------|-----|-----------|---------|-------|----------------------|
+| TopN50 EW（冻结基线）| **0.924** | 0.585 | 74.1% | 61.4% | **66.0** | 0.361 |
+| QP TE=6% | 0.402 | 0.690 | 74.8% | 89.0% | 59.2 | 0.121 |
+| L2 forced | 0.356 | 0.677 | 74.3% | 90.1% | 59.0 | — |
+| QP TE=10% | 0.356 | 0.691 | 74.9% | 90.3% | 59.0 | — |
+| QP TE=15% | 0.356 | 0.689 | 74.8% | 90.3% | 59.0 | — |
+| QP 无行业约束 | 0.240 | **0.734** | 75.5% | 93.4% | 58.7 | 0.078 |
+| QP 行业±5% | 0.146 | 0.689 | 75.1% | 96.4% | 58.7 | 0.039 |
+
+**关键发现（Group A）**：
+
+- **H1 假设被证伪**：原假设"TopN 截断比 QP 多约 50pp"错误。实际两者 truncation 均约 74%（QP spec 设 topn=50，先预选 top-50 再 QP 优化，截断程度相同）。悖论不在"截断了多少信号"，而在"同一批 50 只股票如何分配权重"。
+- **H3 验证**：TE=6/10/15% 对应 TC=0.690/0.691/0.689，差异 <0.002，TE 约束是保护机制，不改变信号转化质量。
+- **H4 验证**：noind TC=0.734（最高），超额 IR=0.240（倒数第二）。放松行业约束→TC 上升→行业 beta 敞口增大→IR 下降。
+- **N_eff 反直觉**：TopN50 EW N_eff=66.0 > QP N_eff=59.2，尽管 QP 有连续权重。QP 幅度加权→集中在高信号股票→有效广度更低。
+- **ir_actual 直接量化**：同一批 50 只股票，QP ir_actual=0.121 vs TopN ir_actual=0.361（QP 原始组合 Sharpe 仅为 TopN 的 33%）。
+
+### Group B/C/D 结果（跨信号类型，4 种信号 × 2 种持仓方式对比）
+
+| 信号类型 | 持仓方式 | 超额 IR | TC | ir_loss | N_eff | IC_IR（验证期）|
+|---------|---------|--------|-----|---------|-------|--------------|
+| Rolling48 Ridge | TopN50 EW | **1.771** | 0.5998 | 34.3% | 66.0 | NaN |
+| Rolling48 Ridge | QP TE=6% | 1.489 | 0.6829 | 56.8% | 58.7 | 0.348 |
+| Decay HL24 Ridge | TopN50 EW | 1.057 | 0.5998 | 67.7% | 66.0 | NaN |
+| ICIR Expanding | TopN50 EW | 0.924 | 0.5854 | 61.4% | 66.0 | 0.461 |
+| Decay HL24 Ridge | QP TE=6% | 0.626 | 0.6940 | 88.8% | 58.9 | 0.418 |
+| Expanding Ridge | TopN50 EW | 0.574 | 0.5996 | 81.6% | 66.0 | NaN |
+| Expanding Ridge | QP TE=6% | 0.408 | 0.6926 | 91.2% | 59.1 | **0.628** |
+
+**关键发现（跨类型）**：
+
+1. **持仓方式结构属性恒定**：TopN EW 在所有 4 种信号中 TC 始终约 0.600，N_eff 始终约 66.0；QP 在所有 4 种信号中 TC 始终约 0.685–0.694，N_eff 始终约 58.7–59.1。这是优化器的结构特性，与信号无关。
+
+2. **TopN EW 全面优于 QP**（4/4 信号类型）：
+   - Rolling48：TopN 1.771 > QP 1.489（差 0.282）
+   - Decay HL24：TopN 1.057 > QP 0.626（差 0.431）
+   - ICIR Expanding：TopN 0.924 > QP 0.402（差 0.522）
+   - Expanding Ridge：TopN 0.574 > QP 0.408（差 0.166）
+   
+   结论不依赖特定信号，是系统性规律。
+
+3. **Expanding Ridge 信号的双悖论（最重要发现）**：验证期 IC_IR=0.628（四种信号中最高），但 QP IR=0.408（四种 QP 中最低），QP ir_loss=91.2%（四种 QP 中最高）。IC_IR 高 ≠ 信号"幅度"（cardinal value）可靠。Expanding Ridge 使用 2012–2020 年全部历史，在 2021–2022 年验证期信号幅度的分布比 Rolling48 更嘈杂，QP 的幅度加权被噪声放大所伤。
+
+4. **ir_loss 是信号幅度质量的代理指标**：Rolling48 QP ir_loss=56.8%（最低）对应 QP IR=1.489（最高）；Expanding Ridge QP ir_loss=91.2%（最高）对应 QP IR=0.408（最低）。ir_loss 越低表明信号幅度在 GK 理论框架下越可靠，QP 的实际表现越接近理论预期。
+
+### 根因定量确认
+
+「信号基数 vs 序数」假说得到跨维度定量支撑：
+
+| 证据维度 | 数据 | 结论 |
+|---------|------|------|
+| 同信号内部（Group A）| TopN N_eff=66.0 vs QP N_eff=59.2；QP ir_actual=0.121 vs TopN ir_actual=0.361 | QP 幅度加权→集中→有效广度低 3x 原始 Sharpe 损失 |
+| 跨信号（Group B/C/D）| Expanding Ridge IC_IR 最高（0.628）但 QP ir_loss 最高（91.2%）| 高 IC_IR ≠ 高幅度质量；TopN 对噪声幅度免疫 |
+| TE/行业约束（Group A）| 放松 TE/行业约束→ir_loss 上升（非下降）| 约束是保护机制，真正瓶颈是优化器权重分配机制 |
+| 最佳 QP 信号 | Rolling48 QP ir_loss=56.8%，IR=1.489 | 幅度质量好的信号（滚动窗口贴近验证期结构）才适合 QP |
+
+### 后续方向（优先级排序）
+
+| 优先级 | 方向 | 依据 |
+|--------|------|------|
+| P0 | 晋升 Rolling48 + TopN50 EW（IR=1.771，三项全 PASS）| 数据已支撑，是当前最优配置，无需额外实验 |
+| P1 | 诊断 Decay HL24 vs Rolling48 信号幅度差异 | 解释 Decay TopN IR=1.057 低于 Rolling48 IR=1.771 的具体机制（ir_loss: 67.7% vs 34.3%）|
+| P2 | 探索信号 rank 变换后送入 QP | 将信号转换为序数（rank）后再 QP 优化，消除"基数 vs 序数"问题，可能在 QP 框架内改善 |
+| P3 | Rolling48 + QP 深入研究 | 已 PASS（IR=1.489），可作为 QP 路线的最优参照 |

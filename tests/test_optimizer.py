@@ -25,6 +25,7 @@ from src.portfolio.optimizer import (
     _topn_equal_weight,
     optimize_single_period,
     optimize_all_periods,
+    optimize_topn_equal_weight_all_periods,
 )
 from src.portfolio.covariance import validate_and_repair_covariance
 
@@ -516,6 +517,75 @@ class TestTopnLimitUpExclusion:
 
         assert w.sum() == pytest.approx(1.0, abs=1e-9)
         assert compliant is True
+
+
+class TestForcedTopnEqualWeightAllPeriods:
+    """Forced topn_ew mode must reuse L3 constraints and emit full metadata."""
+
+    DATES = [
+        pd.Timestamp("2022-01-31"),
+        pd.Timestamp("2022-02-28"),
+    ]
+    CODES = ["A", "B", "C", "D", "E"]
+
+    def _benchmark_weights(self) -> dict[pd.Timestamp, pd.Series]:
+        bench = pd.Series(1.0 / len(self.CODES), index=self.CODES)
+        return {T: bench for T in self.DATES}
+
+    def test_forced_topn_emits_expected_metadata(self):
+        composite = pd.DataFrame(
+            [
+                [5.0, 4.0, 3.0, 2.0, 1.0],
+                [1.0, 2.0, 5.0, 4.0, 3.0],
+            ],
+            index=self.DATES,
+            columns=self.CODES,
+        )
+        config = OptimizeConfig(topn=2, single_max_dev=1.0)
+
+        weights, meta = optimize_topn_equal_weight_all_periods(
+            composite_panel=composite,
+            benchmark_weights=self._benchmark_weights(),
+            rebalance_dates=self.DATES,
+            config=config,
+        )
+
+        assert weights.loc[self.DATES[0], "A"] == pytest.approx(0.5)
+        assert weights.loc[self.DATES[0], "B"] == pytest.approx(0.5)
+        assert weights.loc[self.DATES[0], ["C", "D", "E"]].sum() == pytest.approx(0.0)
+        assert (meta["fallback_level"] == 2).all()
+        assert (meta["solver_status"] == "topn_ew_forced").all()
+        assert (meta["optimizer_mode"] == "topn_ew").all()
+        assert (meta["cov_available"] == False).all()  # noqa: E712
+        assert meta["constraint_compliant"].all()
+
+    def test_forced_topn_respects_halt_and_limit_up_state(self):
+        composite = pd.DataFrame(
+            [
+                [5.0, 4.0, 3.0, 2.0, 1.0],
+                [1.0, 2.0, 5.0, 4.0, 3.0],
+            ],
+            index=self.DATES,
+            columns=self.CODES,
+        )
+        config = OptimizeConfig(topn=2, single_max_dev=1.0)
+
+        weights, meta = optimize_topn_equal_weight_all_periods(
+            composite_panel=composite,
+            benchmark_weights=self._benchmark_weights(),
+            rebalance_dates=self.DATES,
+            config=config,
+            halt_dict={self.DATES[1]: {"A"}},
+            limit_up_dict={self.DATES[1]: {"C"}},
+        )
+
+        second = weights.loc[self.DATES[1]]
+        assert second["A"] == pytest.approx(0.5), "halted prior holding must stay locked"
+        assert second["C"] == pytest.approx(0.0), "limit-up stock must not be newly bought"
+        assert second[["D", "E"]].sum() == pytest.approx(0.5)
+        assert meta.loc[self.DATES[1], "n_halt"] == 1
+        assert meta.loc[self.DATES[1], "n_limit_up"] == 1
+        assert bool(meta.loc[self.DATES[1], "constraint_compliant"]) is True
 
 
 class TestOptimizeAllPeriodsConstraintCompliant:

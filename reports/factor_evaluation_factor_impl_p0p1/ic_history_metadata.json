@@ -1,0 +1,22 @@
+{
+  "train_start": "2012-01-01",
+  "train_end": "2020-12-31",
+  "valid_start": "2021-01-01",
+  "valid_end": "2022-12-31",
+  "n_dates_train": 106,
+  "n_dates_valid": 22,
+  "n_dates_research": 128,
+  "n_factors_all": 58,
+  "n_factors_final": 18,
+  "includes_validation": true,
+  "coverage_note": "验证期数据仅用于诊断，不允许回流至筛选逻辑",
+  "low_coverage_factors": [
+    "hk_hold_chg",
+    "hk_hold_ratio",
+    "margin_ratio",
+    "mf_flow_ratio",
+    "pledge_ratio",
+    "short_ratio"
+  ],
+  "generated_at": "2026-05-29T06:21:36Z"
+}

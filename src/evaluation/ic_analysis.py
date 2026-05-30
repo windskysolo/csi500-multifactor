@@ -5,6 +5,7 @@ src/evaluation/ic_analysis.py — 单因子 IC 检验框架
 核心功能：
   compute_rank_ic         单截面 Rank IC（Spearman 相关系数）
   compute_ic_series       跨所有调仓日的 IC 时序
+  build_ic_history        构建 date × factor 的月度 Rank IC 历史矩阵
   ic_summary              IC 统计量（IC_IR / t 统计量 / p 值 / IC>0 占比）
   compute_forward_returns T+1 开盘买入 → T'+1 开盘卖出的月度收益率面板
   batch_ic_test           批量因子 IC 检验，含 BH 多重检验校正
@@ -105,6 +106,57 @@ def compute_ic_series(
         for d in dates
     ]
     return pd.Series(ic_vals, index=dates, name="ic").dropna()
+
+
+def build_ic_history(
+    factor_panels: dict[str, "pd.DataFrame"],
+    fwd_ret_panel: "pd.DataFrame",
+    factor_names: "list[str] | None" = None,
+    min_coverage: float = 0.0,
+) -> "pd.DataFrame":
+    """
+    构建 date × factor 的月度 Rank IC 历史矩阵。
+
+    对每个因子调用 compute_ic_series()，汇聚为一张宽表。
+    不同因子的有效日期可能不同（如数据起点不一致），合并时会产生 NaN；
+    这是正常现象，调用方应在 metadata 中披露覆盖率不足的因子。
+
+    Args:
+        factor_panels: 因子面板字典，key=因子名，value=行=调仓日、列=ts_code 的 DataFrame。
+        fwd_ret_panel: 下期收益面板，调用方必须已按 exit_date 过滤至所需样本区间。
+        factor_names:  可选因子名列表；None 表示使用全部 factor_panels。
+                       列表中若含 factor_panels 中不存在的因子，抛 KeyError。
+        min_coverage:  覆盖率下限，透传给 compute_ic_series（0.0 = 不过滤）。
+    Returns:
+        DataFrame，index=rebalance_date（已 sort_index），columns=factor_name，dtype=float64。
+        某日某因子 IC 计算失败（有效样本 < 10 或覆盖不足）时对应单元格为 NaN。
+    时间对齐假设：
+        本函数不自行切分训练/验证边界；调用方负责传入已按 exit_date 切分好的 fwd_ret_panel。
+    数据依赖：
+        仅依赖传入参数，不读取磁盘。
+    Raises:
+        KeyError: factor_names 中包含 factor_panels 里不存在的因子名。
+    """
+    if factor_names is None:
+        factor_names = list(factor_panels)
+
+    missing = [n for n in factor_names if n not in factor_panels]
+    if missing:
+        raise KeyError(f"以下因子在 factor_panels 中不存在：{missing}")
+
+    series_dict: dict[str, pd.Series] = {}
+    for name in factor_names:
+        ic_s = compute_ic_series(factor_panels[name], fwd_ret_panel, min_coverage=min_coverage)
+        series_dict[name] = ic_s
+
+    if not series_dict:
+        empty = pd.DataFrame(columns=factor_names, dtype="float64")
+        empty.index.name = "rebalance_date"
+        return empty
+
+    result = pd.DataFrame(series_dict).sort_index()
+    result.index.name = "rebalance_date"
+    return result
 
 
 def ic_summary(ic_series: pd.Series) -> dict:

@@ -68,9 +68,12 @@ class OptimizeConfig:
     topn: int               = cfg.OPT_TOPN               # L3 兜底取前 N 只
     turnover_lambda: float  = cfg.OPT_TURNOVER_LAMBDA    # 换手成本惩罚系数；0 = 不启用
     max_solve_seconds: float = 30.0                      # 超时触发 Fallback（工程参数）
+    force_l2: bool = False                               # 跳过 L1（TE 二次约束），直接从 L2 开始
     solver_order: list[str] = field(
         default_factory=lambda: ["CLARABEL", "SCS"]
     )
+    prefilter_topn: int = 0          # 0=不预筛; N>0=仅 top-N 股票参与主动配置
+    prefilter_mode: str = "none"     # "none"|"zero_alpha"|"lock_benchmark"
 
 
 @dataclass
@@ -504,42 +507,77 @@ def optimize_single_period(
     limit_up_idx  = {code_idx[c] for c in limit_up_codes if c in code_idx}
     limit_dn_idx  = {code_idx[c] for c in limit_dn_codes if c in code_idx}
 
+    # ------------------------------------------------------------------
+    # 预筛 Top-N（仅 QP 路径；L3 有自己的 topn 逻辑）
+    # prefilter_mode="zero_alpha"    : 非 top-N 股票的 alpha 清零，仍可被约束分配权重
+    # prefilter_mode="lock_benchmark": 非 top-N 股票等式锁定到基准权重，完全移出主动管理
+    # ------------------------------------------------------------------
+    lock_benchmark_indices: set[int] = set()
+    if config.prefilter_topn > 0 and config.prefilter_mode != "none":
+        alpha_orig = alpha.reindex(codes).values.astype(float)
+        candidates = sorted(
+            [(i, float(alpha_orig[i])) for i in range(n)
+             if i not in halt_indices and not np.isnan(alpha_orig[i])],
+            key=lambda x: x[1], reverse=True,
+        )
+        top_n_set = {i for i, _ in candidates[:config.prefilter_topn]}
+        non_top_free = {i for i in range(n)
+                        if i not in top_n_set and i not in halt_indices}
+
+        if config.prefilter_mode == "zero_alpha":
+            for i in non_top_free:
+                alpha_vec[i] = 0.0
+        elif config.prefilter_mode == "lock_benchmark":
+            lock_benchmark_indices = non_top_free
+
+        log.debug(
+            "prefilter_%s: top-%d 激活 / %d 只受限",
+            config.prefilter_mode, len(top_n_set), len(non_top_free),
+        )
+
     A_ind = _build_industry_matrix(codes, industry_map)
 
     te_limit = (config.te_target_annual ** 2) / TRADING_DAYS_PER_YEAR
 
     # ------------------------------------------------------------------
-    # L1：完整 QP（含跟踪误差二次约束）
+    # L1：完整 QP（含跟踪误差二次约束）；force_l2=True 时直接跳过
     # ------------------------------------------------------------------
-    w_l1 = cp.Variable(n, name="w_l1")
-    l1_constraints = _build_portfolio_constraints(
-        w_l1, w_b_vec, A_ind, config, halt_indices, limit_up_idx, limit_dn_idx, w_prev_vec
-    )
-    # psd_wrap：告知 CVXPY 矩阵已由 _ensure_positive_definite 保证正定，
-    # 跳过 ARPACK 特征值验证（500×500 矩阵上 ARPACK 常迭代不收敛）。
-    l1_constraints.append(cp.quad_form(w_l1 - w_b_vec, cp.psd_wrap(cov)) <= te_limit)
-
-    if w_prev_vec is not None and config.turnover_lambda > 0:
-        l1_obj = cp.Maximize(
-            alpha_vec @ w_l1 - config.turnover_lambda * cp.norm1(w_l1 - w_prev_vec)
+    status = "skipped_force_l2"
+    elapsed = 0.0
+    if not config.force_l2:
+        w_l1 = cp.Variable(n, name="w_l1")
+        l1_constraints = _build_portfolio_constraints(
+            w_l1, w_b_vec, A_ind, config, halt_indices, limit_up_idx, limit_dn_idx, w_prev_vec
         )
-    else:
-        l1_obj = cp.Maximize(alpha_vec @ w_l1)
-    l1_problem = cp.Problem(l1_obj, l1_constraints)
-    success, status, elapsed = _try_solve(l1_problem, config)
+        for i in lock_benchmark_indices:
+            l1_constraints.append(w_l1[i] == w_b_vec[i])
+        # psd_wrap：告知 CVXPY 矩阵已由 _ensure_positive_definite 保证正定，
+        # 跳过 ARPACK 特征值验证（500×500 矩阵上 ARPACK 常迭代不收敛）。
+        l1_constraints.append(cp.quad_form(w_l1 - w_b_vec, cp.psd_wrap(cov)) <= te_limit)
 
-    if success and w_l1.value is not None:
-        w_vals, trigger_l2 = _postprocess_weights(w_l1.value, status)
-        if not trigger_l2:
-            log.debug("L1 成功: status=%s, %.2fs", status, elapsed)
-            return OptimizeResult(
-                weights=pd.Series(w_vals, index=codes, name="weight"),
-                fallback_level=0,
-                solver_status=status,
-                solve_time_s=elapsed,
+        if w_prev_vec is not None and config.turnover_lambda > 0:
+            l1_obj = cp.Maximize(
+                alpha_vec @ w_l1 - config.turnover_lambda * cp.norm1(w_l1 - w_prev_vec)
             )
+        else:
+            l1_obj = cp.Maximize(alpha_vec @ w_l1)
+        l1_problem = cp.Problem(l1_obj, l1_constraints)
+        success, status, elapsed = _try_solve(l1_problem, config)
 
-    log.info("L1 失败或降级 (status=%s, %.2fs)，尝试 L2", status, elapsed)
+        if success and w_l1.value is not None:
+            w_vals, trigger_l2 = _postprocess_weights(w_l1.value, status)
+            if not trigger_l2:
+                log.debug("L1 成功: status=%s, %.2fs", status, elapsed)
+                return OptimizeResult(
+                    weights=pd.Series(w_vals, index=codes, name="weight"),
+                    fallback_level=0,
+                    solver_status=status,
+                    solve_time_s=elapsed,
+                )
+
+        log.info("L1 失败或降级 (status=%s, %.2fs)，尝试 L2", status, elapsed)
+    else:
+        log.debug("force_l2=True：跳过 L1，直接进入 L2")
 
     # ------------------------------------------------------------------
     # L2：去掉跟踪误差约束，保留全部线性约束
@@ -548,6 +586,8 @@ def optimize_single_period(
     l2_constraints = _build_portfolio_constraints(
         w_l2, w_b_vec, A_ind, config, halt_indices, limit_up_idx, limit_dn_idx, w_prev_vec
     )
+    for i in lock_benchmark_indices:
+        l2_constraints.append(w_l2[i] == w_b_vec[i])
     if w_prev_vec is not None and config.turnover_lambda > 0:
         l2_obj = cp.Maximize(
             alpha_vec @ w_l2 - config.turnover_lambda * cp.norm1(w_l2 - w_prev_vec)
@@ -604,6 +644,153 @@ def optimize_single_period(
         solve_time_s=elapsed_l3,
         constraint_compliant=l3_compliant,
     )
+
+
+# ---------------------------------------------------------------------------
+# 强制 TopN 等权路径（无 QP，但复用 L3 状态约束）
+# ---------------------------------------------------------------------------
+
+def optimize_topn_equal_weight_all_periods(
+    composite_panel: pd.DataFrame,
+    benchmark_weights: dict[pd.Timestamp, pd.Series],
+    rebalance_dates: list[pd.Timestamp],
+    config: OptimizeConfig | None = None,
+    halt_dict: dict[pd.Timestamp, set[str]] | None = None,
+    limit_up_dict: dict[pd.Timestamp, set[str]] | None = None,
+    limit_dn_dict: dict[pd.Timestamp, set[str]] | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Build a forced TopN equal-weight target panel without running QP.
+
+    This is intended for frozen/no-optimizer baselines. It deliberately reuses
+    the L3 helper so suspended positions stay locked, limit-up names are not
+    bought, limit-down holdings are not sold, and single-name deviation checks
+    are recorded in metadata.
+
+    Time alignment:
+      - composite_panel[T] is the signal known at rebalance date T.
+      - benchmark_weights[T] defines the CSI500 investable snapshot for T.
+      - halt/limit dictionaries must also be keyed by T.
+      - The returned target weights are T close decisions for downstream T+1
+        open execution in the backtest layer.
+
+    Returns:
+        (weights_panel, metadata_df)
+        weights_panel: rows are rebalance dates, columns are ts_code.
+        metadata_df: rows are rebalance dates with optimizer audit fields.
+    """
+    if config is None:
+        config = OptimizeConfig()
+
+    weights_rows: dict[pd.Timestamp, pd.Series] = {}
+    meta_rows: list[dict] = []
+    w_prev: pd.Series | None = None
+
+    for T in rebalance_dates:
+        if T not in benchmark_weights:
+            log.warning(
+                "optimize_topn_equal_weight_all_periods: %s 无基准权重数据，跳过",
+                T.date(),
+            )
+            continue
+        if T not in composite_panel.index:
+            log.warning(
+                "optimize_topn_equal_weight_all_periods: %s 无合成信号，跳过",
+                T.date(),
+            )
+            continue
+
+        t0 = time.perf_counter()
+        w_b = benchmark_weights[T]
+        period_codes = list(w_b.index)
+        code_idx = {c: i for i, c in enumerate(period_codes)}
+
+        alpha_vec = (
+            composite_panel.loc[T]
+            .reindex(period_codes)
+            .values
+            .astype(float)
+        )
+        w_b_vec = w_b.reindex(period_codes).fillna(0.0).values.astype(float)
+        w_b_sum = float(w_b_vec.sum())
+        if w_b_sum > 1e-10:
+            w_b_vec = w_b_vec / w_b_sum
+
+        w_prev_vec = (
+            w_prev.reindex(period_codes).fillna(0.0).values.astype(float)
+            if w_prev is not None
+            else None
+        )
+
+        halt = (halt_dict or {}).get(T, set())
+        lim_up = (limit_up_dict or {}).get(T, set())
+        lim_dn = (limit_dn_dict or {}).get(T, set())
+        halt_idx = {code_idx[c] for c in halt if c in code_idx}
+        lim_up_idx = {code_idx[c] for c in lim_up if c in code_idx}
+        lim_dn_idx = {code_idx[c] for c in lim_dn if c in code_idx}
+
+        # Reuse the same L3 helper as the optimizer fallback. This keeps the
+        # frozen baseline auditable under the same halt/limit rules.
+        w_vals, compliant = _topn_equal_weight(
+            alpha_vec=alpha_vec,
+            n=len(period_codes),
+            topn=config.topn,
+            halt_indices=halt_idx,
+            no_buy_indices=lim_up_idx,
+            limit_dn_indices=lim_dn_idx,
+            w_prev_vec=w_prev_vec,
+            single_max_dev=config.single_max_dev,
+            w_b_vec=w_b_vec,
+        )
+        elapsed = time.perf_counter() - t0
+
+        weights = pd.Series(w_vals, index=period_codes, name="weight")
+        weights_rows[T] = weights
+        n_holdings = int((weights > 1e-12).sum())
+        meta_rows.append({
+            "rebalance_date":       T,
+            "fallback_level":       2,
+            "solver_status":        "topn_ew_forced",
+            "solve_time_s":         elapsed,
+            "cov_available":        False,
+            "w_prev_source":        "target_weight",
+            "constraint_compliant": bool(compliant),
+            "optimizer_mode":       "topn_ew",
+            "requested_topn":       int(config.topn),
+            "n_holdings":           n_holdings,
+            "n_halt":               len(halt_idx),
+            "n_limit_up":           len(lim_up_idx),
+            "n_limit_down":         len(lim_dn_idx),
+        })
+        w_prev = weights
+
+        log.debug(
+            "optimize_topn_equal_weight_all_periods: %s -> topn_ew holdings=%d compliant=%s",
+            T.date(),
+            n_holdings,
+            compliant,
+        )
+
+    if not weights_rows:
+        log.warning(
+            "optimize_topn_equal_weight_all_periods: 所有调仓日均跳过，返回空 DataFrame"
+        )
+        return pd.DataFrame(), pd.DataFrame()
+
+    weights_panel = pd.DataFrame(weights_rows).T.fillna(0.0)
+    weights_panel.index.name = "rebalance_date"
+    weights_panel.columns = weights_panel.columns.astype(str)
+    metadata_df = pd.DataFrame(meta_rows).set_index("rebalance_date")
+    metadata_df.index = pd.DatetimeIndex(metadata_df.index)
+
+    n_bad = int((~metadata_df["constraint_compliant"]).sum())
+    log.info(
+        "optimize_topn_equal_weight_all_periods: 完成 %d 期 | requested_topn=%d | noncompliant=%d",
+        len(weights_panel),
+        config.topn,
+        n_bad,
+    )
+    return weights_panel, metadata_df
 
 
 # ---------------------------------------------------------------------------

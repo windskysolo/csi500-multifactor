@@ -24,6 +24,7 @@ import src.evaluation.shift_test as st_mod
 from src.evaluation.ic_analysis import (
     batch_ic_test,
     build_exit_date_map,
+    build_ic_history,
     compute_forward_returns,
     compute_rank_ic,
 )
@@ -347,6 +348,107 @@ class TestShiftTest:
 # ---------------------------------------------------------------------------
 # Artifact Consistency — factor_summary.csv vs final_factors.json
 # ---------------------------------------------------------------------------
+
+class TestBuildIcHistory:
+    """验证 build_ic_history() 的矩阵形态、列过滤、缺失因子报错、index 命名。"""
+
+    def _make_panels(self, n_dates: int = 30, n_stocks: int = 50, seed: int = 42):
+        rng = np.random.default_rng(seed)
+        dates = pd.date_range("2016-01-01", periods=n_dates, freq="MS")
+        codes = [f"{i:06d}.SZ" for i in range(n_stocks)]
+        factor_a = pd.DataFrame(
+            rng.standard_normal((n_dates, n_stocks)), index=dates, columns=codes
+        )
+        factor_b = pd.DataFrame(
+            rng.standard_normal((n_dates, n_stocks)), index=dates, columns=codes
+        )
+        # fwd_ret 与 factor_a 正相关，使 IC 多数非 NaN
+        fwd = pd.DataFrame(
+            0.05 * factor_a.values + rng.normal(0, 0.03, (n_dates, n_stocks)),
+            index=dates,
+            columns=codes,
+        )
+        return {"factor_a": factor_a, "factor_b": factor_b}, fwd
+
+    def test_returns_date_x_factor_matrix(self):
+        """结果应为 DataFrame，列为因子名，行为调仓日。"""
+        panels, fwd = self._make_panels()
+        result = build_ic_history(panels, fwd)
+        assert isinstance(result, pd.DataFrame)
+        assert set(result.columns) == {"factor_a", "factor_b"}
+        assert len(result) > 0
+
+    def test_index_name_is_rebalance_date(self):
+        """index.name 必须为 'rebalance_date'。"""
+        panels, fwd = self._make_panels()
+        result = build_ic_history(panels, fwd)
+        assert result.index.name == "rebalance_date", (
+            f"index.name 应为 'rebalance_date'，实际为 '{result.index.name}'"
+        )
+
+    def test_factor_names_limits_columns_and_order(self):
+        """factor_names 参数能限制输出列和列顺序。"""
+        panels, fwd = self._make_panels()
+        result = build_ic_history(panels, fwd, factor_names=["factor_b"])
+        assert list(result.columns) == ["factor_b"], (
+            f"列应只含 ['factor_b']，实际为 {list(result.columns)}"
+        )
+        assert "factor_a" not in result.columns
+
+    def test_factor_names_order_preserved(self):
+        """factor_names 的列顺序应原样保留在结果中。"""
+        panels, fwd = self._make_panels()
+        result = build_ic_history(panels, fwd, factor_names=["factor_b", "factor_a"])
+        assert list(result.columns) == ["factor_b", "factor_a"]
+
+    def test_missing_factor_raises_key_error(self):
+        """factor_names 中有不存在的因子时，必须抛 KeyError。"""
+        panels, fwd = self._make_panels()
+        with pytest.raises(KeyError):
+            build_ic_history(panels, fwd, factor_names=["nonexistent_factor"])
+
+    def test_result_is_sorted_by_index(self):
+        """返回结果应按 rebalance_date 升序排列。"""
+        panels, fwd = self._make_panels()
+        result = build_ic_history(panels, fwd)
+        assert result.index.is_monotonic_increasing, "结果 index 应单调递增"
+
+    def test_values_are_float64(self):
+        """结果列 dtype 应为 float64。"""
+        panels, fwd = self._make_panels()
+        result = build_ic_history(panels, fwd)
+        for col in result.columns:
+            assert result[col].dtype == np.float64, (
+                f"列 {col} dtype={result[col].dtype}，应为 float64"
+            )
+
+    def test_train_valid_concat_gives_research(self):
+        """train + valid IC history concat 后，日期集合应覆盖全期。"""
+        rng = np.random.default_rng(7)
+        n_dates = 20
+        n_stocks = 30
+        dates = pd.date_range("2016-01-01", periods=n_dates, freq="MS")
+        codes = [f"{i:06d}.SZ" for i in range(n_stocks)]
+        factor_a = pd.DataFrame(rng.standard_normal((n_dates, n_stocks)), index=dates, columns=codes)
+        fwd = pd.DataFrame(
+            0.05 * factor_a.values + rng.normal(0, 0.03, (n_dates, n_stocks)),
+            index=dates, columns=codes,
+        )
+
+        split = n_dates // 2
+        train_panels = {"factor_a": factor_a.iloc[:split]}
+        valid_panels = {"factor_a": factor_a.iloc[split:]}
+        train_fwd = fwd.iloc[:split]
+        valid_fwd = fwd.iloc[split:]
+
+        ic_train = build_ic_history(train_panels, train_fwd)
+        ic_valid = build_ic_history(valid_panels, valid_fwd)
+        ic_research = pd.concat([ic_train, ic_valid]).sort_index()
+
+        # 研究期 IC 应包含训练期和验证期的全部日期
+        assert set(ic_train.index).issubset(set(ic_research.index))
+        assert set(ic_valid.index).issubset(set(ic_research.index))
+
 
 class TestArtifactConsistency:
     """

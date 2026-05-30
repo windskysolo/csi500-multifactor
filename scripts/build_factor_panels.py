@@ -75,6 +75,8 @@ FINANCIAL_FACTORS: list[str] = [
     "piotroski_f", "garp",
     # 阶段 6：新增财务质量/成长因子
     "roe_stability", "rev_acceleration",
+    # 阶段 7：资本效率（新增）
+    "asset_growth",
 ]
 
 PRICE_FACTORS: list[str] = [
@@ -90,6 +92,9 @@ PRICE_FACTORS: list[str] = [
     "high_52w", "ind_adj_mom", "mom_risk_adj",
     # Sprint 1：修正版动量因子
     "high_52w_v2", "ind_adj_mom_6_1", "mom_consistency_6",
+    # 阶段 7：股本行为 + 融资资金（新增）
+    "share_issuance",
+    "mf_flow_ratio",
 ]
 
 ALL_FACTORS: list[str] = FINANCIAL_FACTORS + PRICE_FACTORS

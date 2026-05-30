@@ -19,6 +19,7 @@ class SignalSpec:
     selected_alpha_policy: str = "cv_train_only"
     half_life_months: Optional[int] = None
     window_months: Optional[int] = None
+    exclude_factors: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -28,6 +29,24 @@ class OptimizerSpec:
     single_max_dev: float = 0.015
     turnover_lambda: float = 0.005
     topn: int = 50
+    use_rank_transform: bool = False  # 在进入 QP 前对截面 Alpha 做排名百分位变换
+    optimizer_mode: str = "qp"
+    prefilter_topn: int = 0          # 0=不预筛; N>0=仅 top-N 股票参与主动配置（QP 模式）
+    prefilter_mode: str = "none"     # "none"|"zero_alpha"|"lock_benchmark"
+
+    def __post_init__(self) -> None:
+        valid_modes = {"qp", "topn_ew", "l2_forced"}
+        if self.optimizer_mode not in valid_modes:
+            raise ValueError(
+                f"optimizer_mode must be one of {sorted(valid_modes)}, "
+                f"got: {self.optimizer_mode!r}"
+            )
+        valid_prefilter = {"none", "zero_alpha", "lock_benchmark"}
+        if self.prefilter_mode not in valid_prefilter:
+            raise ValueError(
+                f"prefilter_mode must be one of {sorted(valid_prefilter)}, "
+                f"got: {self.prefilter_mode!r}"
+            )
 
 
 @dataclass

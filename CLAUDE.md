@@ -6,6 +6,30 @@
 
 ---
 
+## 0. 诚实性原则：本文件哪些内容可以直接引用，哪些必须先读文件
+
+本文件包含两类内容，性质不同，使用规则不同：
+
+| 内容类型 | 示例 | 使用规则 |
+|---|---|---|
+| **行为规则**（怎么做）| §3 核心原则、§4 领域规范、§6 协作流程、§8 禁止事项 | 直接遵守，无需验证 |
+| **事实声明**（当前是什么）| 参数数值、因子列表、目录结构、库版本 | **禁止直接引用，必须先读对应文件核实** |
+
+**凡是属于"事实声明"的内容，在回答用户或写代码前，必须通过工具读取权威来源验证。** 直接背诵 CLAUDE.md 里的数字是导致错误的主因。
+
+具体的"事实声明"及其权威来源：
+
+| 声明类型 | 权威来源 | 禁止做法 |
+|---|---|---|
+| 成本参数（滑点、佣金、印花税数值）| `src/config.py` | 直接报 CLAUDE.md §4.3 里的数字 |
+| 优化器参数（TE目标、偏离上限）| `src/config.py` | 直接报 §4.5 或 §1.1 里的数字 |
+| 实验因子列表和数量 | 该 run 的 `signal/coef_history.parquet` 列名 | 说"当前是 N 个因子"不核实 |
+| 当前通过评估的因子 | `reports/factor_evaluation/final_factors.json` | 背诵因子名或数量 |
+| 库的实际版本 | `requirements.txt` 或 `pip show <pkg>` | 背诵 §5.1 的版本号 |
+| 目录/文件是否存在 | `Glob` 或 `Read` 工具 | 假设某文件"应该存在" |
+
+---
+
 ## 1. 项目上下文
 
 - **类型**：中证500多因子指数增强（截面策略，月频调仓）
@@ -17,27 +41,36 @@
 
 ### 1.1 当前状态（实时维护）
 
-> **每次完成实验、因子评估或代码修改后，主动更新本节对应字段。**
-> 这是项目的"活仪表盘"，应始终反映最新事实。
+> **字段分两类，使用规则不同——见下方说明，违反会导致引用过期数据。**
+
+#### A 类字段：可直接引用（有明确写入触发器，不易悄悄漂移）
 
 | 字段 | 当前值 |
 |------|--------|
-| 因子池规模 | 17 个（含 rev_acceleration） |
-| 验证期最优 IR | **1.489**（challenger_rolling48，未晋升） |
-| 当前主基线 IR | 0.408（baseline_expanding_ridge） |
-| 测试集已用 / 剩余 | 0 次用 / **2 次剩余** |
-| 待解决已知问题 | piotroski_f 方向反转待诊断；decay_ridge 系列（`ridge_decay.py`）未实现 |
-| 最后一次有效实验 | challenger_rolling48（rolling 48m Ridge，IR=1.489） |
+| **冻结基线 IR** | **0.924**（frozen_baseline_icir_topn50_ew，ICIR+TopN50 EW，永不晋升，不可直接与 Ridge+QP 实验比较） |
+| 验证期最优 IR | **1.771**（rolling48_ridge_topn50_ew，Rolling48+TopN50 EW，未晋升；run_id=20260529_081232） |
+| 已晋升主线 IR | 0.408（baseline_expanding_ridge，Ridge+QP，已在 mainline.json 注册） |
+| 测试集已用 / 剩余 | 0 次用 / **2 次剩余**（权威来源：`docs/logs/test_set_runs.json`，更新前先读取该文件）|
+| 最后一次有效实验 | rolling48_ridge_topn50_ew（IR=1.771，PASS；run_id=20260529_081232） |
+| 待解决已知问题 | ~~piotroski_f 需另起实验确认剔除后 IR 影响~~ **消融实验已确认**：剔除 piotroski_f 后 IR=0.524（升），两者同剔 IR=0.430；piotroski_f 为 REMOVE_CANDIDATE；decay_ridge hl36/hl48 验证期 IR 低于基线，需诊断；**阶段7 P0+P1 因子评估完成（2026-05-29）**：accrual 修复后 IC_IR=-0.144（Gate 1 失败，且与 cfp 高相关 r=-0.741）；asset_growth IC_IR=-0.198（Gate 1+3 失败，A 股成长溢价方向相反）；share_issuance IC_IR=-0.113（Gate 1+2+3 三重失败）；mf_flow_ratio IC_IR=-0.175（Gate 0 覆盖72%+Gate 1+2 失败，但两期方向一致，逆向信号待进一步研究）；**QP优化器对所有Ridge/ICIR信号均造成IR损耗（-0.166 ~ -0.522），TopN50 EW在所有信号类型上均优于QP；IC_IR信号损耗最大：QP=0.402 vs TopN50=0.924（-0.522）；根因已诊断（2026-05-29）：松 TE 或松行业约束均使 QP 变差（TE 约束和行业约束是保护机制不是阻力），真正瓶颈是「信号基数 vs 序数」：QP 用 alpha 绝对量级分配权重对噪声敏感，TopN50 仅用 alpha 排名更鲁棒；详见 `current work/5.29/qp_constraint_diagnosis_conclusion.md`**；**TC 量化回填完成（2026-05-30）**：12 个 run 全部生成 `signal_quality_report.json`；跨 4 种信号类型确认 TopN EW 全面优于 QP（4/4 信号类型）；结构属性恒定：TopN TC≈0.600/N_eff≈66，QP TC≈0.685~0.694/N_eff≈58.7~59；ir_loss 规律：TopN(34~81%) < QP(57~91%)；**重要新发现：Expanding Ridge 验证期 IC_IR 最高（0.628）但 QP ir_loss 最高（91.2%）→ 高 IC_IR ≠ 高幅度质量，Expanding 信号幅度比 Rolling48 更嘈杂；Rolling48 QP ir_loss=56.8%（最低）对应最优 QP IR=1.489**；量化结论详见 `docs/research/improve/progress_log.md` 阶段 N+2；**[代码维护-一行修复]** ~~`src/pipeline/stages.py` L38-39 docstring 仍写"decay_weighted_expanding — 尚未实现"~~ **已修复（2026-05-30）**；`scripts/test_set_ledger.py` 顶部 docstring 路径写的是 `docs/check/test_set_runs.json`，代码实际用 `docs/logs/test_set_runs.json`（改 docstring 第一行即可）**；**排名变换 QP 实验完成（2026-05-30，run_id=20260530_095659）**：challenger_icir_te6_rank_qp IR=0.299，比 QP 基线 0.402 更差，假设被证伪；反常发现：TC 反而升高（0.690→0.729）但 IR 下降，说明 TC 高 ≠ IR 高；根因：均匀排名使 alpha 景观平坦，TE/行业约束主导权重分配，信号贡献被稀释；TopN50 优势来自"二值化+等权"而非"更高效转移信号"（TC=0.585 是三者最低）；QP 修复路线（cardinal→ordinal）确认无效，后续聚焦 TopN50 路线继续提升** |
 
-**更新触发条件**（遇到以下事件，完成后立即更新对应字段）：
+#### B 类字段：**使用前必须先读文件核实**，禁止直接引用（真相在文件里，CLAUDE.md 只是副本，容易悄悄漂移）
+
+| 字段 | 权威来源 | 查询方式 |
+|------|----------|---------|
+| 实验实际用的因子列表和数量 | 最近一次 run 的 `signal/coef_history.parquet` 列名（或 `signal/weight_history.parquet` 列名） | `pd.read_parquet('runs/train_valid/<run_id>/signal/coef_history.parquet').columns.tolist()` |
+| 当前通过评估的候选因子 | `reports/factor_evaluation/final_factors.json` | 读文件，不可背诵 |
+| 因子面板是否已构建 | `data/processed/factor_panels/` 目录 | `Glob('data/processed/factor_panels/*.parquet')` |
+
+> **为什么 B 类字段不存数字**：这些字段的真相由文件决定，任何脚本运行都可能静默更新文件内容（如评估脚本覆盖 `final_factors.json`、新实验用了不同因子版本），而 CLAUDE.md 无法感知这些变化。存数字只会制造一个过期的副本，引用时必然出错。
+
+**A 类字段更新触发条件**：
 
 | 触发事件 | 必须更新的字段 |
 |----------|--------------|
-| `run_experiment.py` 跑完一次实验 | 最优 IR（如超越当前最优，同步更新最后一次有效实验） |
-| `run_factor_evaluation.py` 评估完成 | 因子池规模 |
-| 因子状态变化（新增 / 剔除 / warn→stable）| 因子池规模、待解决已知问题 |
+| `run_experiment.py` 跑完一次实验 | 验证期最优 IR（如超越当前最优）、最后一次有效实验 |
 | 测试集运行一次（`run_test_pipeline.py`）| 测试集已用/剩余 |
-| `promote_run.py` 晋升一个 run | 当前主基线 IR |
+| `promote_run.py` 晋升一个 run | 已晋升主线 IR |
 | 新问题发现 / 已知问题修复或排除 | 待解决已知问题 |
 
 ---
@@ -108,9 +141,9 @@
 
 | 规则 | 具体要求 |
 |---|---|
-| **成交假设** | 权重在 T 日盘后基于 ≤ T 日信息生成；实际成交在 **T+1 开盘价**，加 **5-10 bps 滑点** |
-| **印花税** | 按日期切换：**2023-08-28 前 10 bps，之后 5 bps**（卖出单边）；写成时间函数，不写成常数 |
-| **佣金** | 双边各 2.5 bps |
+| **成交假设** | 权重在 T 日盘后基于 ≤ T 日信息生成；实际成交在 **T+1 开盘价** + 滑点 |
+| **印花税** | 按日期切换（2023-08-28 为分界点，卖出单边）；写成时间函数，不写成常数；**具体 bps 值以 `src/config.py` 为准** |
+| **佣金 / 滑点** | **具体 bps 值以 `src/config.py` 为准**，不可背诵本文件里的数字 |
 | **涨跌停约束** | 涨停 `w_i ≤ w_i_prev`，跌停 `w_i ≥ w_i_prev`；一字板完全无法成交，调仓延后 |
 | **停牌处理** | 当期权重锁定为上期值，不参与优化 |
 
@@ -121,7 +154,7 @@
 | **样本外验证** | 训练集调参，验证集确认稳健，**测试集仅项目末期评估，运行 ≤ 2 次** |
 | **测试集纪律** | 每次跑测试集，git commit message 必须含 `[TEST_SET_RUN_N]` 标记 |
 | **统计显著性** | 声称因子"有效"需给出 IC_IR、t 统计量、p 值；批量测试时做 Bonferroni 或 BH 校正 |
-| **过拟合防范** | 优先简单合成（IC_IR 加权 > 滚动回归）；参数尽量少 |
+| **过拟合防范** | 以 IC_IR 加权为基线起点；滚动 Ridge 经 walk-forward CV 验证后可作为挑战者；参数尽量少，新增方法必须先跑基线对比再下结论；**当前挑战者状态以 `registry/challengers.json` 为准，不可背诵本文件** |
 
 ### 4.5 优化与协方差层面 — 核心：协方差正定、Fallback 不死磕
 
@@ -137,15 +170,9 @@
 
 ### 5.1 允许使用的库
 
-```
-python >= 3.10, pandas >= 2.0, numpy, pyarrow, scipy
-statsmodels (中性化、统计检验)
-scikit-learn (LedoitWolf、部分预处理)
-cvxpy >= 1.4 (组合优化)
-matplotlib, plotly (可视化)
-jupyterlab, tqdm, joblib
-pytest (测试)
-```
+允许的库：`pandas` `numpy` `pyarrow` `scipy` `statsmodels` `scikit-learn` `cvxpy` `matplotlib` `plotly` `jupyterlab` `tqdm` `joblib` `pytest`
+
+**具体版本以 `requirements.txt` 为准**，本文件不存版本号（版本号会随环境更新而漂移）。
 
 ### 5.2 明确禁用的库
 
@@ -157,8 +184,7 @@ pytest (测试)
 
 ### 5.3 目录结构
 
-严格按 `docs/PROJECT_PLAN_v1.1.md` 第四节的结构组织。核心模块：
-`data/` `factors/` `signal/` `portfolio/` `backtest/` `attribution/` `viz/`
+严格按 `docs/PROJECT_PLAN_v1.1.md` 第四节的结构组织。**实际目录结构以 `docs/FILE_MAP.md` 为准**，本文件不复述具体路径（路径会随重构变化）。
 
 ### 5.4 代码规范
 
@@ -208,6 +234,8 @@ pytest (测试)
 - **一次实验只改一个变量**；多个想法分多个 Spec 依次测试，否则无法判断贡献来源
 - 复用已有信号时用 `--from-stage portfolio --input-signal-run <id>` 加速，无需重跑信号
 - 实验结束后用 `compare_runs.py` 生成横向比较板，再决定是否注册到 `registry/challengers.json`
+- 涉及运行命令或实验流程时，可参考 `docs/RESEARCH_GUIDE.md` 确认具体用法
+- 每次运行 `compare_runs.py` 时，**必须**将 `frozen_baseline_icir_topn50_ew` 的 run_id 包含在比较列表中，作为所有实验结果的下限参照
 
 **任务完成后必须**：
 1. 输出自检报告（§6.3）
@@ -239,7 +267,14 @@ pytest (测试)
 
 - **A. 高频犯错点**：后复权、全收益基准、Annodt、生效日成分股、时间错位测试、横截面去极值、IC 窗口、T+1 成交、印花税切换、涨跌停约束、测试集运行计数
 - **B. 工程质量**：docstring、单元测试、config 集中、异常路径
-- **C. 统计严谨性**（涉及评估时）：IC_IR / t 统计量、多重检验校正、与全收益基准对比、超额回撤等指标齐全
+- **C. 统计严谨性**（涉及评估时）：IC_IR / t 统计量、多重检验校正、与全收益基准对比、**回测结果必须同时列出以下全部六项指标，禁止只写 IR**：
+  - **IR**（超额质量核心，但单独使用不够）
+  - **年化超额收益**（绝对 alpha 水平）
+  - **超额最大回撤**（最差情景损失下界，IR 无法捕获极端下行）
+  - **跟踪误差**（主动风险预算使用量；IR 相同但 TE 不同代表完全不同的风险特征）
+  - **月度胜率**（直观反映超额稳定性）
+  - **年化双边换手率**（成本端代理指标）
+  - 横向比较时还需标注**三项硬指标是否 PASS**（IR≥0.5 / 超额MDD≤10% / 换手500-1500%），先过门槛再用 IR 排优劣
 - **D. 待优化事项**：本次未处理的问题 + Fallback 触发记录
 
 ---
@@ -277,7 +312,8 @@ pytest (测试)
 |------|--------|
 | 找某个文件在哪、某功能在哪个模块 | `docs/FILE_MAP.md` |
 | 运行实验的完整步骤（Spec→Run→Compare→Promote）| `docs/RESEARCH_GUIDE.md` |
-| 当前最优 IR、已用测试次数、里程碑进展 | `docs/FILE_GUIDE.md`（进展快照）|
+| 当前最优 IR、测试集剩余次数（快速查阅）| **§1.1 当前状态（本文件）** |
+| 里程碑进展详情、已知问题列表 | `docs/FILE_GUIDE.md`（进展快照）|
 | 不清楚某个具体决策（如"中性化基准是什么"）| `docs/PROJECT_PLAN_v1.1.md` |
 | 需要查风险登记表（18 项）、V0-V4 版本区分 | `docs/PROJECT_PLAN_v1.1.md` |
 | L1/L2/L3 退化路线的触发条件细节 | `docs/PROJECT_PLAN_v1.1.md` 第8节 |
@@ -293,7 +329,7 @@ pytest (测试)
 **文件路径**：`docs/research/factor_roadmap/factor_research_guide.md`
 
 这是整个因子研究的核心导航文件，记录了：
-- 16 个现有因子的健康状态（stable / weak / warn / reverse）
+- 当前因子池（规模见 §1.1）的健康状态（stable / weak / warn / reverse）
 - 各维度覆盖缺口和新因子优先级（P1-P6）
 - 每个候选因子的构建规格、经济逻辑、A 股注意事项
 - 四道 Gate 验证标准与月频动量构建清单

@@ -91,20 +91,25 @@ IC_IR_decay = Σ(w_t × IC_t) / √(Σ(w_t² × IC_t²))   # 加权均值/加权
 
 ---
 
-### 2.3 🔬 Ridge 方案矩阵：v1 vs v2 / 全量 vs 窗口
+### 2.3 ✅ Ridge 方案矩阵：v1 vs v2 / 全量 vs 窗口 / 指数衰减
 
-**背景**：Ridge 实验已有 v1（绝对收益）和 v2（超额收益）两个版本，但只测试了扩展窗口（expanding）形式。
+**背景**：Ridge 实验已有 v1（绝对收益）和 v2（超额收益）两个版本，测试了 expanding、rolling、decay 三种窗口形式。
 
-**待实验（实验 S-03）**：
+**实验结果（实验 S-03，2026-05-28 完成 decay 部分）**：
 
-| 组合 | 训练目标 | 训练窗口 | 当前状态 |
-|------|---------|---------|---------|
-| Ridge v1 - expanding | 绝对收益 | 扩展窗口 | 已跑，IR=0.328 |
-| Ridge v2 - expanding | 超额收益 | 扩展窗口 | 已跑，IR=0.422 |
-| Ridge v2 - rolling-60m | 超额收益 | 滚动5年 | 未跑 |
-| Ridge v2 - rolling-36m | 超额收益 | 滚动3年 | 未跑（legacy 脚本有结果但口径可能不同）|
+| 组合 | 训练目标 | 训练窗口 | 状态 | IR |
+|------|---------|---------|---------|---:|
+| Ridge v2 - expanding | 超额收益 | 扩展窗口 | ✅ 已跑 | 0.408 |
+| Ridge v2 - rolling-36m | 超额收益 | 滚动3年 | ✅ 已跑 | 0.966 |
+| Ridge v2 - rolling-48m | 超额收益 | 滚动4年 | ✅ 已跑 | **1.489** |
+| Ridge v2 - rolling-60m | 超额收益 | 滚动5年 | ✅ 已跑 | 1.176 |
+| Ridge v2 - decay hl=24m | 超额收益 | 指数衰减 | ✅ 已跑 | 0.626 |
+| Ridge v2 - decay hl=36m | 超额收益 | 指数衰减 | ✅ 已跑 | 0.295 |
+| Ridge v2 - decay hl=48m | 超额收益 | 指数衰减 | ✅ 已跑 | 0.289 |
 
-> **优先级**：Ridge v2 - rolling 变种，看是否比 expanding 更能适应市场状态切换。
+**结论**：rolling 硬截断（尤其 48m）远优于指数衰减。详见 `current work/exp_decay_ridge_results.md`。
+
+> **待决策**：rolling-48m 是否晋升为主基线？目前 IR=1.489，远超目标 0.5，但尚未进行人工审查。
 
 ---
 

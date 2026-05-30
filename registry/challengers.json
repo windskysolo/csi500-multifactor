@@ -1,6 +1,22 @@
 {
   "challengers": [
     {
+      "name": "frozen_baseline_icir_topn50_ew",
+      "run_id": "20260529_034947__frozen_baseline_icir_topn50_ew",
+      "scope": "train_valid",
+      "status": "frozen_baseline",
+      "registered_at": "2026-05-29",
+      "metrics_v2": {
+        "information_ratio": 0.924,
+        "excess_return": 0.0624,
+        "excess_max_drawdown": -0.0748,
+        "tracking_error": 0.0675,
+        "monthly_win_rate": 0.609,
+        "annual_turnover_pct": 886
+      },
+      "notes": "冻结基线：ICIR加权 + TopN=50排序种子 + L3约束感知等权，无 QP。永不晋升、永不重跑。所有实验的不变对照锚。"
+    },
+    {
       "name": "rolling36",
       "run_id": "20260527_141843__challenger_rolling36_te6_lam0050",
       "scope": "train_valid",
@@ -50,30 +66,51 @@
     },
     {
       "name": "decay_ridge_hl24",
-      "run_id": null,
+      "run_id": "20260528_141041__challenger_decay_ridge_hl24_te6_lam0050",
       "scope": "train_valid",
-      "status": "not_started",
-      "registered_at": "2026-05-27",
-      "metrics_v2": null,
-      "notes": "PENDING: requires src/signal/ridge_decay.py implementation. spec pre-registered at configs/pipelines/challenger_decay_ridge_hl24_te6_lam0050.py."
+      "status": "researching",
+      "registered_at": "2026-05-28",
+      "metrics_v2": {
+        "information_ratio": 0.626,
+        "excess_return": 0.0365,
+        "excess_max_drawdown": -0.0832,
+        "tracking_error": 0.0582,
+        "monthly_win_rate": 0.391,
+        "annual_turnover_pct": 1041
+      },
+      "notes": "decay expanding, half_life=24m, alpha=5000. IR PASS. 优于 expanding 基线(0.408)，但弱于 rolling-48m(1.489)。"
     },
     {
       "name": "decay_ridge_hl36",
-      "run_id": null,
+      "run_id": "20260528_141324__challenger_decay_ridge_hl36_te6_lam0050",
       "scope": "train_valid",
-      "status": "not_started",
-      "registered_at": "2026-05-27",
-      "metrics_v2": null,
-      "notes": "PENDING: requires src/signal/ridge_decay.py implementation. spec pre-registered at configs/pipelines/challenger_decay_ridge_hl36_te6_lam0050.py."
+      "status": "researching",
+      "registered_at": "2026-05-28",
+      "metrics_v2": {
+        "information_ratio": 0.295,
+        "excess_return": 0.0171,
+        "excess_max_drawdown": -0.0879,
+        "tracking_error": 0.0579,
+        "monthly_win_rate": 0.435,
+        "annual_turnover_pct": 1008
+      },
+      "notes": "decay expanding, half_life=36m, alpha=5000. IR FAIL (0.295 < 0.5). 衰减过慢，接近 expanding，信号质量下降。"
     },
     {
       "name": "decay_ridge_hl48",
-      "run_id": null,
+      "run_id": "20260528_141729__challenger_decay_ridge_hl48_te6_lam0050",
       "scope": "train_valid",
-      "status": "not_started",
-      "registered_at": "2026-05-27",
-      "metrics_v2": null,
-      "notes": "PENDING: requires src/signal/ridge_decay.py implementation. spec pre-registered at configs/pipelines/challenger_decay_ridge_hl48_te6_lam0050.py."
+      "status": "researching",
+      "registered_at": "2026-05-28",
+      "metrics_v2": {
+        "information_ratio": 0.289,
+        "excess_return": 0.0168,
+        "excess_max_drawdown": -0.0828,
+        "tracking_error": 0.0581,
+        "monthly_win_rate": 0.391,
+        "annual_turnover_pct": 1008
+      },
+      "notes": "decay expanding, half_life=48m, alpha=5000. IR FAIL (0.289 < 0.5). 衰减最慢，最接近 expanding，与 hl36 结果相近。"
     }
   ]
 }
