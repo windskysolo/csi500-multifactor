@@ -54,6 +54,7 @@ from src.signal.combiner import (
 )
 from src.portfolio.covariance import estimate_covariance_lw, validate_and_repair_covariance
 from src.portfolio.optimizer import OptimizeConfig, optimize_single_period
+from src.portfolio.optimizer import optimize_topn_equal_weight_all_periods
 from src.backtest.engine import BacktestConfig, run_backtest
 from src.backtest.metrics import summarize
 from src.pipeline.artifacts import file_sha256
@@ -512,9 +513,10 @@ def _run_optimization(
     all_rebalance_dates: list[pd.Timestamp],
     output_dir: Path,
     opt_config: OptimizeConfig,
+    optimizer_mode: str = "qp",
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
-    对 all_rebalance_dates 中所有期运行 QP 优化，利用已有协方差缓存。
+    对 all_rebalance_dates 中所有期运行组合优化，利用已有协方差缓存。
 
     F6-005: 权重产物写入 output_dir/portfolio/（标准产物子目录）。
     F9-003: 新估计的协方差写入 output_dir/cov_cache/，不污染公共 cov_cache/。
@@ -526,6 +528,41 @@ def _run_optimization(
 
     test_cov_cache_dir = output_dir / "cov_cache"
     test_cov_cache_dir.mkdir(parents=True, exist_ok=True)
+
+    # topn_ew 模式：跳过协方差估计和 QP，直接调用约束感知 TopN 等权
+    if optimizer_mode == "topn_ew":
+        log.info("topn_ew 模式：跳过协方差估计和 QP，使用 L3 约束感知等权路径")
+        index_member_raw = pd.read_parquet(cfg.DATA_PROC / "index_member.parquet")
+        dates_in_member  = index_member_raw.index.get_level_values("rebalance_date").unique()
+        available_dates  = [d for d in all_rebalance_dates if d in dates_in_member]
+
+        benchmark_weights_dict: dict = {}
+        halt_dict:     dict = {}
+        limit_up_dict: dict = {}
+        limit_dn_dict: dict = {}
+        for T in available_dates:
+            snap = index_member_raw.loc[T]
+            w_b  = snap["index_weight"] / 100.0
+            benchmark_weights_dict[T] = w_b / w_b.sum()
+            halt_dict[T]     = set(snap.index[snap["is_suspended"]])
+            limit_up_dict[T] = set(snap.index[snap["is_limit_up_locked"]])
+            limit_dn_dict[T] = set(snap.index[snap["is_limit_down_locked"]])
+
+        weights_panel, meta_df = optimize_topn_equal_weight_all_periods(
+            composite_panel    = composite_signal,
+            benchmark_weights  = benchmark_weights_dict,
+            rebalance_dates    = available_dates,
+            config             = opt_config,
+            halt_dict          = halt_dict,
+            limit_up_dict      = limit_up_dict,
+            limit_dn_dict      = limit_dn_dict,
+        )
+        baseline_panel = weights_panel.copy()
+        weights_panel.to_parquet(portfolio_dir / "target_weights.parquet")
+        baseline_panel.to_parquet(portfolio_dir / "baseline_weights.parquet")
+        meta_df.to_parquet(portfolio_dir / "optimizer_meta.parquet")
+        log.info("topn_ew 权重已写入 portfolio/: shape=%s", weights_panel.shape)
+        return weights_panel, baseline_panel
 
     log.info("加载 index_member 及行业数据...")
     index_member_raw = pd.read_parquet(cfg.DATA_PROC / "index_member.parquet")
@@ -935,10 +972,10 @@ def _current_git_commit() -> str:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="测试集评估流程（最多运行 2 次）")
+    parser = argparse.ArgumentParser(description="测试集评估流程（最多运行 3 次）")
     parser.add_argument(
         "--run-id", type=int, required=True,
-        help="本次是第几次测试集运行（1 或 2），必须与 ledger 中已有次数 +1 一致",
+        help="本次是第几次测试集运行（1、2 或 3），必须与 ledger 中已有次数 +1 一致",
     )
     parser.add_argument(
         "--resume-from-lock", action="store_true",
@@ -972,7 +1009,8 @@ def main() -> None:
 
     # ── 读取主基线 context ────────────────────────────────────────────────────
     mainline_run_id, opt_spec, signal_spec = _load_mainline_context()
-    opt_config  = _build_opt_config(opt_spec)
+    opt_config     = _build_opt_config(opt_spec)
+    optimizer_mode = opt_spec.get("optimizer_mode", "qp")
     test_run_id = f"test_run_{args.run_id}__{mainline_run_id}"
 
     test_run_dir = _ROOT / "runs" / "test" / test_run_id
@@ -1183,6 +1221,7 @@ def main() -> None:
             log.info("--- Step 3-4: 协方差估计 + 组合优化（输出→portfolio/）---")
             weights_v1, weights_v2 = _run_optimization(
                 composite_ic_ir, all_dates, test_run_dir, opt_config,
+                optimizer_mode=optimizer_mode,
             )
 
         # ── Step 5: 测试集回测 ───────────────────────────────────────────────────
