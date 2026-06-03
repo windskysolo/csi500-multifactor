@@ -16,7 +16,7 @@ runs/
 │       ├── backtest/
 │       ├── attribution/
 │       └── reports/
-└── test/          # 正式测试集 run（最多 2 次，受 ledger 纪律约束）
+└── test/          # 正式测试集 run（最多 3 次，受 ledger 纪律约束）
     └── test_run_N__<mainline_run_id>/
 ```
 

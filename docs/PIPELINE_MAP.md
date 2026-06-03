@@ -11,7 +11,7 @@
 |-----------|-------------|-----------|
 | 完整跑训练+验证，IC_IR信号 | **Pipeline A** | `python -m scripts.run_pipeline` |
 | 重现 v1.1 IR=0.483 最优结果 | **Pipeline B** | 先跑 B-1，再跑 B-2 |
-| 跑测试集（≤2次，慎用） | **Pipeline C** | `python -m scripts.run_test_pipeline` |
+| 跑测试集（≤3次，慎用） | **Pipeline C** | `python -m scripts.run_test_pipeline` |
 | 评估新因子（单因子检验） | **Pipeline D** | `python -m scripts.run_factor_evaluation` |
 | 修改因子池后重跑全流程 | 先跑 D → 更新 `final_factors.json` → 再跑 A 或 B |
 | Rolling 窗口 vs Expanding 对比 | **Pipeline E** | `python -m experiments.ridge_rolling.run_rolling_experiment` |
@@ -88,7 +88,7 @@ scripts/run_pipeline.py  ← 一键入口（可 --from-stage 断点续跑）
 |------|-----|------|
 | `TRAIN_START/END` | 2012-01 / 2020-12 | 训练期 108期 |
 | `VALID_START/END` | 2021-01 / 2022-12 | 验证期 24期 |
-| `TEST_START/END` | 2023-01 / 2025-12 | 测试期（≤2次）|
+| `TEST_START/END` | 2023-01 / 2025-12 | 测试期（≤3次）|
 | `OPT_TE_TARGET_ANNUAL` | 0.06 | 年化跟踪误差目标 |
 | `OPT_TURNOVER_LAMBDA` | 0.005 | 换手惩罚系数（v1.1最优）|
 | `OPT_SINGLE_MAX_DEV` | 0.015 | 单股最大偏离（绝对值）|
@@ -197,7 +197,7 @@ experiments/ridge_rolling/
 
 ## Pipeline C：测试集专用流水线
 
-**⚠️ 剩余次数：2次（已用0次）。每次跑之前必须登记**
+**⚠️ 剩余次数：3次（已用0次）。每次跑之前必须登记**
 
 ```
 scripts/run_test_pipeline.py  ← 唯一入口，内置计数保护

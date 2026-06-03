@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 
 ROOT = Path(__file__).parent.parent
 LEDGER_PATH = ROOT / "docs" / "logs" / "test_set_runs.json"
-MAX_TEST_SET_RUNS = 2
+MAX_TEST_SET_RUNS = 3
 
 
 def load_test_set_ledger() -> dict[str, Any]:

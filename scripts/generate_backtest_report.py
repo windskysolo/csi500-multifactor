@@ -107,7 +107,7 @@ def _section_header(gen_time: str, metadata: dict | None = None) -> str:
 > 生成时间：{gen_time}
 > 数据源目录：`{cfg.DATA_PROC.relative_to(_ROOT)}/`
 > 覆盖期间：验证集 {cfg.VALID_START.date()} ~ {cfg.VALID_END.date()}
-> 测试集状态：已运行 **{test_count} 次**（2023-2025），剩余可运行次数 **{test_remaining} 次**（上限 2；以 `docs/check/test_set_runs.json` 为准）。
+> 测试集状态：已运行 **{test_count} 次**（2023-2025），剩余可运行次数 **{test_remaining} 次**（上限 3；以 `docs/check/test_set_runs.json` 为准）。
 
 ---
 """

@@ -40,7 +40,7 @@ data/processed/run_manifests/run_YYYYMMDD_HHMMSS.json
   "stages_executed": ["convert", "factors", "evaluate", "signal", "portfolio", "backtest", "attribution"],
   "train_end": "2021-12-31",               // ← 训练期截止（参数是否正确）
   "valid_end": "2022-12-31",               // ← 验证期截止
-  "test_set_run_count": 0                  // ← 测试集已运行次数（上限2次）
+  "test_set_run_count": 0                  // ← 测试集已运行次数（上限3次）
 }
 ```
 
@@ -50,14 +50,14 @@ data/processed/run_manifests/run_YYYYMMDD_HHMMSS.json
 run_20260520_212950.json
 success=True
 stages_executed 包含全部 7 个阶段
-test_set_run_count=0（剩余正式机会 2 次）
+test_set_run_count=0（剩余正式机会 3 次）
 ```
 
 ### 怎么判断正常
 
 - `success=true`：所有阶段完成
 - `stages_executed` 包含 `convert`、`factors`、`evaluate`、`signal`、`portfolio`、`backtest`、`attribution` 七步
-- `test_set_run_count` 不超过 2：这是整个项目最重要的纪律之一，违反等于作弊
+- `test_set_run_count` 不超过 3：这是整个项目最重要的纪律之一，违反等于作弊
 
 ---
 
@@ -531,7 +531,7 @@ reports/analysis_v2_results.md     ← 自动生成的完整报告，包含 Brin
 ```
 ✅ run_manifest.json 中 success=true
 ✅ stages_executed 包含 7 个阶段
-✅ test_set_run_count 不超过 2
+✅ test_set_run_count 不超过 3
 ```
 
 ### 第二关：因子评价合理性

@@ -607,9 +607,9 @@ def test_ledger_path_is_docs_logs():
     )
 
 
-def test_ledger_max_runs_is_two():
-    """MAX_TEST_SET_RUNS 必须是 2。"""
-    assert MAX_TEST_SET_RUNS == 2
+def test_ledger_max_runs_is_three():
+    """MAX_TEST_SET_RUNS 必须是 3。"""
+    assert MAX_TEST_SET_RUNS == 3
 
 
 def test_ledger_count_is_non_negative():

@@ -287,7 +287,7 @@ python -m scripts.compare_runs --output-dir out/       # 自定义输出目录
 | `_write_run_config(...)` | 写入 `run_config.json`（供 `compare_runs.py` 读取） |
 
 #### 保持不变
-- ledger 纪律（最多 2 次，显式 `--run-id`，`test_set_ledger.py` 路径不变）
+- ledger 纪律（最多 3 次，显式 `--run-id`，`test_set_ledger.py` 路径不变）
 - F9-003 隔离：不修改公共 `fwd_ret_panel.parquet`、`cov_cache/`
 - F9-004 守卫：`RUN_STARTED.json` 锁文件逻辑
 - F5-001 守卫：`INVALIDATED.md` 检查、因子集合一致性断言

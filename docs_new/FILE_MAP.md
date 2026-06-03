@@ -184,7 +184,7 @@
 |------|--------|--------|
 | `run_experiment.py` | **最常用**。按 Spec 文件驱动完整实验（signal→portfolio→backtest）。每次运行生成新的不可变 run 目录 | ★★★★★ |
 | `run_pipeline.py` | 旧式全流程入口（训练/验证期，不含测试集）。运行前无需写 Spec | ★★★ |
-| `run_test_pipeline.py` | 测试集评估（≤2次总计）。读取当前主基线 Spec 自动运行 | ★★★★ |
+| `run_test_pipeline.py` | 测试集评估（≤3次总计）。读取当前主基线 Spec 自动运行 | ★★★★ |
 | `compare_runs.py` | 生成横向比较板（`experiment_board.csv` + `.md`）。支持 `--run-ids` 指定特定 run | ★★★★ |
 | `promote_run.py` | 将某个 run 晋升为主基线。晋升前检查产物完整性 | ★★★ |
 

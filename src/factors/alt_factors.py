@@ -19,6 +19,8 @@ src/factors/alt_factors.py — 备选数据因子构建（阶段 5 实现）
 
 已知覆盖限制：
   - hk_hold*：2014-11-17 前无数据（沪深港通开通前）→ 全 NaN 属于预期
+  - hk_hold*：2024-08-19 后北向持股改为季度披露（季末后约5个交易日公布上季度末数据），
+    因子定义已同步改为"季度 PIT 快照"，见 current work/6.2/implementation_plan.md
 
 数据依赖：
   daily_quote.parquet / hk_hold.parquet / analyst_rc_pit.parquet /
@@ -53,7 +55,12 @@ log = logging.getLogger(__name__)
 WINDOW_TECH     = 120   # 技术因子统一历史窗口（足够 MACD EMA 稳定）
 WINDOW_BOLL     = 20    # 布林带窗口（交易日）
 WINDOW_OBV      = 20    # OBV 变化窗口（交易日）
-WINDOW_HK_HOLD  = 30    # 北向持仓变化回看（交易日）
+# hk_hold 因子于 2026-06 改为季度 PIT 快照（2024-08-19 后北向持股披露改为季度制）
+WINDOW_HK_HOLD             = 30   # DEPRECATED：原 30 交易日回看，保留避免外部引用报错
+WINDOW_HK_HOLD_QUARTERLY   = 270  # 季度快照回看窗口（日历天，约3个自然季度）
+MAX_HK_HOLD_STALENESS_DAYS = 120  # 最大允许披露滞后天数（超过则置 NaN；覆盖约1个季度）
+HK_HOLD_QUARTERLY_OFFSET_DAYS = 10  # PIT 偏移：季末后约5个交易日 ≈ 10日历天
+HK_HOLD_CHG_SPLIT_DAYS     = 91   # chg 分割：约1个自然季度（91天）前为"先前快照"
 WINDOW_ANALYST  = 180   # 分析师覆盖回看天数
 ANALYST_SPLIT   = 90    # 分析师近期 / 远期分割点（天）
 WINDOW_INSIDER  = 90    # 股东增减持回看天数
@@ -305,19 +312,41 @@ def factor_hk_hold_ratio(
     codes: list[str],
 ) -> pd.Series:
     """
-    北向持仓比例（沪深港通持股占流通股比例）。
+    北向持仓比例 — 季度 PIT 快照版（2026-06 修订）。
 
-    取 T 日及之前 5 个日历日内最近一个有数据交易日的 ratio。
+    2024-08-19 起港交所改为每季度第5个交易日公布上季度末持仓数据，
+    因子定义同步调整为"最近可得季度披露快照"：
+      - PIT 偏移：只使用 trade_date <= T - HK_HOLD_QUARTERLY_OFFSET_DAYS(10) 的记录，
+        规避季末披露公告的约5交易日滞后
+      - 在 [pit_cutoff - 270d, pit_cutoff] 窗口内取每只股票最近一次非 NaN ratio
+      - 若最新记录距 T 超过 MAX_HK_HOLD_STALENESS_DAYS(120) 天 → 置 NaN
     2014-11-17 前无数据 → 全 NaN，属于预期。
 
+    Args:
+        rebalance_date: 调仓日（T 日）
+        codes:          可投资股票代码列表
+
     Returns:
-        ts_code → 北向持仓比例（%）
+        ts_code → 北向持仓比例（%）；无有效快照或超滞后时为 NaN
     """
-    start = rebalance_date - pd.Timedelta(days=5)
-    hk = load_hk_hold(start, rebalance_date, codes=codes)
+    pit_cutoff   = rebalance_date - pd.Timedelta(days=HK_HOLD_QUARTERLY_OFFSET_DAYS)
+    window_start = pit_cutoff - pd.Timedelta(days=WINDOW_HK_HOLD_QUARTERLY)
+
+    hk = load_hk_hold(window_start, pit_cutoff, codes=codes)
     if hk.empty:
         return _nan_series(codes, "hk_hold_ratio")
-    snap = hk["ratio"].groupby(level="ts_code").last()
+
+    df = hk[["ratio"]].reset_index().dropna(subset=["ratio"])
+    if df.empty:
+        return _nan_series(codes, "hk_hold_ratio")
+
+    # 每只股票取窗口内最新披露记录（sort 保证 .last() 对应时间最新的行）
+    last_obs = df.sort_values("trade_date").groupby("ts_code").last()
+
+    # 超过最大滞后阈值时置 NaN（近期披露缺失说明数据不可用）
+    staleness_days = (rebalance_date - last_obs["trade_date"]).dt.days
+    snap = last_obs["ratio"].where(staleness_days <= MAX_HK_HOLD_STALENESS_DAYS)
+
     snap.name = "hk_hold_ratio"
     return snap.reindex(codes)
 
@@ -327,26 +356,55 @@ def factor_hk_hold_chg(
     codes: list[str],
 ) -> pd.Series:
     """
-    北向持仓比例 WINDOW_HK_HOLD(30) 交易日变化量：ratio_T - ratio_{T-30d}。
+    北向持仓比例变化 — 季度 PIT 快照差分版（2026-06 修订）。
 
-    用绝对变化量（百分点），ratio 本身已是相对量无需再归一化。
-    2014-11-17 前无数据 → 全 NaN，属于预期。
+    将回看窗口以 HK_HOLD_CHG_SPLIT_DAYS(91) 天为界分为两段：
+      - 近端 (mid_cutoff, pit_cutoff]：取最新披露快照（latest）
+      - 远端 [window_start, mid_cutoff]：取最新披露快照（prior）
+    change = latest_ratio - prior_ratio
+
+    滞后保护：近端最新记录距 T 超过 MAX_HK_HOLD_STALENESS_DAYS(120) 天 → 置 NaN。
+    任一端无数据（含北向开通前） → 置 NaN。
+
+    设计一致性：
+      - 2024-08-19 前为日频数据，此定义等价于"约一季度的持仓变动幅度"；
+      - 2024-08-19 后为季度数据，自然对应相邻两次季度披露之差。
+
+    Args:
+        rebalance_date: 调仓日（T 日）
+        codes:          可投资股票代码列表
 
     Returns:
-        ts_code → 持仓比例变化（百分点）
+        ts_code → 持仓比例变化（百分点）；数据不足或超滞后时为 NaN
     """
-    start = _window_start(rebalance_date, WINDOW_HK_HOLD)
-    if start is None:
-        return _nan_series(codes, "hk_hold_chg")
-    hk = load_hk_hold(start, rebalance_date, codes=codes)
+    pit_cutoff   = rebalance_date - pd.Timedelta(days=HK_HOLD_QUARTERLY_OFFSET_DAYS)
+    window_start = pit_cutoff - pd.Timedelta(days=WINDOW_HK_HOLD_QUARTERLY)
+    mid_cutoff   = pit_cutoff - pd.Timedelta(days=HK_HOLD_CHG_SPLIT_DAYS)
+
+    hk = load_hk_hold(window_start, pit_cutoff, codes=codes)
     if hk.empty:
         return _nan_series(codes, "hk_hold_chg")
 
-    ratio = hk["ratio"].unstack(level="ts_code")
-    if ratio.shape[0] < 2:
+    df = hk[["ratio"]].reset_index().dropna(subset=["ratio"])
+    if df.empty:
         return _nan_series(codes, "hk_hold_chg")
 
-    result = ratio.iloc[-1] - ratio.iloc[0]
+    df = df.sort_values("trade_date")
+    latest_df = df[df["trade_date"] >  mid_cutoff]
+    prior_df  = df[df["trade_date"] <= mid_cutoff]
+
+    if latest_df.empty or prior_df.empty:
+        return _nan_series(codes, "hk_hold_chg")
+
+    latest_obs  = latest_df.groupby("ts_code")["ratio"].last()
+    latest_date = latest_df.groupby("ts_code")["trade_date"].last()
+    prior_obs   = prior_df.groupby("ts_code")["ratio"].last()
+
+    # 近端超过最大滞后阈值时置 NaN（差分基准不可信）
+    staleness_days = (rebalance_date - latest_date).dt.days
+    valid_latest   = latest_obs.where(staleness_days <= MAX_HK_HOLD_STALENESS_DAYS)
+
+    result = valid_latest - prior_obs
     result.name = "hk_hold_chg"
     return result.reindex(codes)
 

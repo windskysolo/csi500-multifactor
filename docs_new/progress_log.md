@@ -659,7 +659,7 @@ python scripts/run_attribution.py
 
 **修复的报告口径问题**：
 
-- `generate_backtest_report.py` 测试集计数已改为读取 `docs/check/test_set_runs.json`；已删除错误的历史 Run #1 记录，当前口径为已运行 0 次、剩余 2 次。
+- `generate_backtest_report.py` 测试集计数已改为读取 `docs/check/test_set_runs.json`；已删除错误的历史 Run #1 记录，当前口径为已运行 0 次、剩余 3 次。
 - `factor_attr.py` 补充阶段 4/5 新因子与备选数据因子的分组映射；因子归因现在覆盖 16/16 个最终因子。
 - `run_attribution.py` 不再写入旧的 OPT-L3 风险；当前记录的未修复风险为归因/NAV reconciliation 偏差。
 
@@ -1263,7 +1263,7 @@ IR 随 λ 变化：0.422 → 0.405 → **0.483** → 0.470 → 0.450
 
 ## 阶段 7 — 测试集门控确认
 
-**状态**：🔒 锁定（剩余运行次数：2 次）  
+**状态**：🔒 锁定（剩余运行次数：3 次）  
 **纪律**：
 - 每次运行前在 `test_set_run_log.md` 预登记
 - git commit message 必须含 `[TEST_SET_RUN_N]`

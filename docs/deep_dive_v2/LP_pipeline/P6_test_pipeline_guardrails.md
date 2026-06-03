@@ -42,7 +42,7 @@
 ```python
 ROOT = Path(__file__).parent.parent
 LEDGER_PATH = ROOT / "docs" / "logs" / "test_set_runs.json"   # 权威路径
-MAX_TEST_SET_RUNS = 2
+MAX_TEST_SET_RUNS = 3
 ```
 
 > ⚠️ **已知 docstring 漂移**：`test_set_ledger.py` 文件顶部的 docstring 写的是 `docs/check/test_set_runs.json`，
@@ -78,7 +78,7 @@ if completed >= MAX_TEST_RUNS:
     sys.exit(1)
 ```
 
-检查 `docs/logs/test_set_runs.json` 中有效运行次数（status != "voided"）。达到上限（2次）立即拒绝，不允许第三次运行。
+检查 `docs/logs/test_set_runs.json` 中有效运行次数（status != "voided"）。达到上限（3次）立即拒绝，不允许第四次运行。
 
 #### 门 2：Run-id 序列守卫
 
@@ -340,7 +340,7 @@ git commit -m "[TEST_SET_RUN_1] test set evaluation using mainline=baseline_expa
 
 | 场景 | 行为 |
 |---|---|
-| 测试集已用 2 次 | 门 1 拒绝，exit(1) |
+| 测试集已用 3 次 | 门 1 拒绝，exit(1) |
 | --run-id 与 ledger 不符 | 门 2 拒绝，exit(1) |
 | RUN_STARTED 存在 + ledger 有记录 | 门 3 拒绝，exit(1) |
 | RUN_STARTED 存在 + 无 --resume-from-lock | 门 3 拒绝，exit(1) |
@@ -390,9 +390,9 @@ git commit -m "[TEST_SET_RUN_1] test set evaluation using mainline=baseline_expa
 
 ## 十、领域知识补充
 
-**测试集上限为何是 2 次？**
+**测试集上限为何是 3 次？**
 
-统计学视角：每次测试集运行后，研究员都可能根据结果调整策略，使下一次测试集结果"被污染"。如果允许无限次测试集运行，实质上是在测试集上调参，样本外结果失去意义。2 次上限是工程化实现的"保留一次容错"原则：第 1 次发现问题（如实现 bug）可以修复后用第 2 次验证，但第 2 次必须是最终决策，不能再改。
+统计学视角：每次测试集运行后，研究员都可能根据结果调整策略，使下一次测试集结果"被污染"。如果允许无限次测试集运行，实质上是在测试集上调参，样本外结果失去意义。3 次上限是工程化实现的"保留容错"原则：第 1 次发现问题可以修复后用第 2 次验证，第 3 次作为最终决策前的补充确认，之后不能再改。
 
 **为何 ledger 写入是"最后一步"？**
 

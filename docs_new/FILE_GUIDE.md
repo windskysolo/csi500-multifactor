@@ -14,7 +14,7 @@
 | **冻结基线 IR** | **0.924**（frozen_baseline_icir_topn50_ew，ICIR+TopN50 EW，永不晋升，不可与 Ridge+QP 实验直接比较）|
 | 验证期最优 IR | **1.489**（challenger_rolling48，未晋升）|
 | 已晋升主线 IR | 0.408（baseline_expanding_ridge，Ridge+QP，已在 mainline.json 注册）|
-| 测试集已用 / 剩余 | 0 次 / **2 次剩余**（权威来源：`docs/logs/test_set_runs.json`）|
+| 测试集已用 / 剩余 | 0 次 / **3 次剩余**（权威来源：`docs/logs/test_set_runs.json`）|
 | 当前阶段 | 持续改进期（搭建完成，聚焦提升 IR）|
 
 > 若此表与 `CLAUDE.md` §1.1 不一致，**以 CLAUDE.md §1.1 为准**（两者应同步维护）。
@@ -49,7 +49,7 @@
 | 超额最大回撤 | ≤ 10% | -5.82%（rolling48）| ✅ |
 | 年化双边换手 | 5-15 倍 | ~9x（rolling48）| ✅ |
 
-> rolling48 仅在验证期达标，**尚未做测试集评估**（测试集剩余 2 次，请谨慎使用）。
+> rolling48 仅在验证期达标，**尚未做测试集评估**（测试集剩余 3 次，请谨慎使用）。
 
 ---
 

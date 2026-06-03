@@ -73,7 +73,7 @@ experiments/v1.2/
 
 ## 下一步
 
-IR 已达标。剩余 ≤2 次测试集配额用于最终验证。测试集运行需要：
+IR 已达标。剩余 ≤3 次测试集配额用于最终验证。测试集运行需要：
 
 1. git commit message 含 `[TEST_SET_RUN_N]`
 2. 使用 `scripts/run_test_pipeline.py`

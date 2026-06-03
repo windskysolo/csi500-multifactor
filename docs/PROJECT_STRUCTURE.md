@@ -52,7 +52,7 @@ docs/
 │   └── improve/                  # IR 诊断、优化器诊断、改进阶段计划
 │
 ├── logs/                         # 运行记录（只追加）
-│   ├── test_set_runs.json        # 测试集次数计数（权威来源，≤ 2 次）
+│   ├── test_set_runs.json        # 测试集次数计数（权威来源，≤ 3 次）
 │   └── test_set_run_log.md       # 每次测试集运行前的登记日志
 │
 └── archive/                      # 历史记录（只读，留存溯源）

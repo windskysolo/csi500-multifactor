@@ -245,7 +245,7 @@ L3 层（TopN 等权）：
 | TE 实现值（不受约束限制）| ~5.8% < 6%（TE 约束非紧绑定）|
 | 换手惩罚 λ_TC | 0.005（网格最优） |
 | piotroski_f 验证期 IC_IR | -0.200（REMOVE_CANDIDATE）|
-| 测试集剩余次数 | **2 次**（权威来源：`docs/logs/test_set_runs.json`）|
+| 测试集剩余次数 | **3 次**（权威来源：`docs/logs/test_set_runs.json`）|
 
 ---
 

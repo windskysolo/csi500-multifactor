@@ -62,7 +62,7 @@ TRAIN_END    = pd.Timestamp("2020-12-31")   # ← 9年训练期
 VALID_START  = pd.Timestamp("2021-01-01")
 VALID_END    = pd.Timestamp("2022-12-31")   # ← 2年验证期
 TEST_START   = pd.Timestamp("2023-01-01")
-TEST_END     = pd.Timestamp("2025-12-31")   # ← 3年测试期（≤2次运行）
+TEST_END     = pd.Timestamp("2025-12-31")   # ← 3年测试期（≤3次运行）
 ```
 
 **为何使用 `pd.Timestamp` 而不是字符串？**

@@ -16,7 +16,7 @@
 | 行业分类 | 申万一级 SW2021（31个行业） |
 | 训练集 | 2016-01-01 ~ 2021-12-31 |
 | 验证集 | 2022-01-01 ~ 2022-12-31 |
-| 测试集 | 2023-01-01 ~ 2025-12-31（总运行 ≤ 2 次） |
+| 测试集 | 2023-01-01 ~ 2025-12-31（总运行 ≤ 3 次） |
 | 完成标准 | IR ≥ 0.5，超额最大回撤 ≤ 10%，年化双边换手 5-15 倍 |
 
 ## 环境安装
@@ -80,13 +80,13 @@ python -m scripts.run_attribution
 Notebook（`notebooks/02_factor_evaluation.ipynb` 至 `06_attribution.ipynb`）
 用于探索和可视化，读取上述脚本产物展示，不承担生产产物生成职责。
 
-## 测试集运行（受控，最多 2 次）
+## 测试集运行（受控，最多 3 次）
 
 ```bash
 # 查看当前已使用次数
 python -c "from scripts.test_set_ledger import count_test_set_runs, remaining_test_set_runs; print(count_test_set_runs(), remaining_test_set_runs())"
 
-# 运行第 1 次（当前已用 0 次，剩余 2 次）
+# 运行第 1 次（当前已用 0 次，剩余 3 次）
 # 运行前必须在 docs/check/test_set_run_log.md 预登记
 python -m scripts.run_test_pipeline --run-id 1
 ```
@@ -118,7 +118,7 @@ python -m pytest tests/ -q
 
 ## 重要注意事项
 
-- **测试集纪律**：测试集 2023-2025 总运行次数 ≤ 2 次，当前已运行 0 次。
+- **测试集纪律**：测试集 2023-2025 总运行次数 ≤ 3 次，当前已运行 0 次。
 - **数据口径**：全程使用后复权价格和后复权收益率，基准为全收益指数（H00905.CSI）。
 - **PIT 严格**：财务数据以 `ann_date`（公告日）为可用日，不以报告期 `end_date` 为准。
 - **参数冻结**：训练期确定的研究参数（IC 阈值、优化约束）在测试集运行前不得修改。

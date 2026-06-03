@@ -1009,7 +1009,7 @@ def write_reports(stage7: dict[str, pd.DataFrame], stage8: dict[str, pd.DataFram
         "",
         "1. 不要直接把 rolling-48m 替换为主管线信号。",
         "2. 先恢复/固定产物版本，消除 `experiments/` 漂移；之后统一重跑 expanding、36m、48m、60m，禁止只保留最优窗口。",
-        "3. 若继续研究 rolling，应在验证期内预注册窗口选择规则，再用最多 2 次正式测试集纪律做最终评估。",
+        "3. 若继续研究 rolling，应在验证期内预注册窗口选择规则，再用最多 3 次正式测试集纪律做最终评估。",
     ]
     (OUT_DIR / "root_cause_report.md").write_text("\n".join(root_lines), encoding="utf-8")
 

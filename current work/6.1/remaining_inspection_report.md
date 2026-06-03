@@ -1,0 +1,385 @@
+# Remaining Pre-Test Inspection Report
+
+- Generated: 2026-06-02T18:50:04.557649+08:00
+- Root: `E:\Acoding\Project\500 improve`
+- Summary: PASS=5 WARN=1 FAIL=0 PENDING=4
+- Note: L6 formal test execution was not run by this inspection.
+
+## Preflight
+
+### P-1 - old invalid run directory conflict: PASS
+
+Expected run directory is absent, or does not contain a stale composite artifact.
+
+```json
+{
+  "mainline_run_id": "20260602_104439__rolling48_topn150_ew_hk_quarterly",
+  "expected_run_id": 1,
+  "expected_dir": "E:\\Acoding\\Project\\500 improve\\runs\\test\\test_run_1__20260602_104439__rolling48_topn150_ew_hk_quarterly",
+  "expected_dir_exists": false,
+  "stale_composite_exists": false
+}
+```
+
+### P-2 - RUN_STARTED lock check: PASS
+
+No stale RUN_STARTED.json exists under the expected rerun directory.
+
+```json
+{
+  "expected_dir": "E:\\Acoding\\Project\\500 improve\\runs\\test\\test_run_1__20260602_104439__rolling48_topn150_ew_hk_quarterly",
+  "lock_path": "E:\\Acoding\\Project\\500 improve\\runs\\test\\test_run_1__20260602_104439__rolling48_topn150_ew_hk_quarterly\\RUN_STARTED.json",
+  "lock_exists": false
+}
+```
+
+### P-3 - rerun command shape: PASS
+
+Recommended rerun command does not include resume or custom panel flags.
+
+```json
+{
+  "recommended_command": "python scripts/run_test_pipeline.py --run-id 1",
+  "forbidden_flags_found": []
+}
+```
+
+## L5
+
+### L5-1 - hk_hold PIT date discipline: PASS
+
+hk_hold loaders and factor functions do not return future trade_date values.
+
+```json
+{
+  "source_patterns": {
+    "ratio_uses_pit_cutoff_as_end": true,
+    "chg_uses_pit_cutoff_as_end": true,
+    "pit_cutoff_le_rebalance_date": true,
+    "loader_uses_range_reader": true,
+    "negative_shift_in_hk_functions": false
+  },
+  "samples": [
+    {
+      "T": "2023-03-31",
+      "pit_cutoff": "2023-03-21",
+      "window_start": "2022-07-04",
+      "sample_codes": [
+        "000009.SZ",
+        "000012.SZ",
+        "000021.SZ"
+      ],
+      "ratio_rows": 16986,
+      "ratio_max_trade_date": "2023-03-21",
+      "chg_rows": 16986,
+      "chg_max_trade_date": "2023-03-21"
+    },
+    {
+      "T": "2023-12-29",
+      "pit_cutoff": "2023-12-19",
+      "window_start": "2023-04-03",
+      "sample_codes": [
+        "000009.SZ",
+        "000021.SZ",
+        "000027.SZ"
+      ],
+      "ratio_rows": 17003,
+      "ratio_max_trade_date": "2023-12-19",
+      "chg_rows": 17003,
+      "chg_max_trade_date": "2023-12-19"
+    },
+    {
+      "T": "2024-08-30",
+      "pit_cutoff": "2024-08-20",
+      "window_start": "2023-12-04",
+      "sample_codes": [
+        "000009.SZ",
+        "000021.SZ",
+        "000027.SZ"
+      ],
+      "ratio_rows": 16640,
+      "ratio_max_trade_date": "2024-08-17",
+      "chg_rows": 16640,
+      "chg_max_trade_date": "2024-08-17"
+    },
+    {
+      "T": "2025-10-31",
+      "pit_cutoff": "2025-10-21",
+      "window_start": "2025-02-03",
+      "sample_codes": [
+        "000009.SZ",
+        "000021.SZ",
+        "000027.SZ"
+      ],
+      "ratio_rows": 240,
+      "ratio_max_trade_date": "2025-09-30",
+      "chg_rows": 240,
+      "chg_max_trade_date": "2025-09-30"
+    },
+    {
+      "T": "2025-12-31",
+      "pit_cutoff": "2025-12-21",
+      "window_start": "2025-04-05",
+      "sample_codes": [
+        "000009.SZ",
+        "000021.SZ",
+        "000027.SZ"
+      ],
+      "ratio_rows": 160,
+      "ratio_max_trade_date": "2025-09-30",
+      "chg_rows": 160,
+      "chg_max_trade_date": "2025-09-30"
+    }
+  ],
+  "failures": [],
+  "warnings": []
+}
+```
+
+### L5-2 - analyst_eps_revision PIT date discipline: PASS
+
+analyst EPS revision uses pit_date <= T and no future pit_date was found in samples.
+
+```json
+{
+  "source_patterns": {
+    "factor_uses_pit_loader": true,
+    "factor_splits_by_pit_date": true,
+    "loader_filters_pit_le_rebalance": true,
+    "loader_filters_lookback_start": true,
+    "negative_shift_in_function": false
+  },
+  "samples": [
+    {
+      "T": "2023-03-31",
+      "sample_codes": [
+        "000009.SZ",
+        "000012.SZ",
+        "000021.SZ"
+      ],
+      "rows": 2081,
+      "min_pit_date": "2022-10-09",
+      "max_pit_date": "2023-03-31"
+    },
+    {
+      "T": "2023-12-29",
+      "sample_codes": [
+        "000009.SZ",
+        "000021.SZ",
+        "000027.SZ"
+      ],
+      "rows": 3258,
+      "min_pit_date": "2023-07-02",
+      "max_pit_date": "2023-12-29"
+    },
+    {
+      "T": "2024-08-30",
+      "sample_codes": [
+        "000009.SZ",
+        "000021.SZ",
+        "000027.SZ"
+      ],
+      "rows": 3949,
+      "min_pit_date": "2024-03-03",
+      "max_pit_date": "2024-08-30"
+    },
+    {
+      "T": "2025-10-31",
+      "sample_codes": [
+        "000009.SZ",
+        "000021.SZ",
+        "000027.SZ"
+      ],
+      "rows": 3034,
+      "min_pit_date": "2025-05-04",
+      "max_pit_date": "2025-10-31"
+    },
+    {
+      "T": "2025-12-31",
+      "sample_codes": [
+        "000009.SZ",
+        "000021.SZ",
+        "000027.SZ"
+      ],
+      "rows": 3060,
+      "min_pit_date": "2025-07-05",
+      "max_pit_date": "2025-12-31"
+    }
+  ],
+  "failures": [],
+  "warnings": []
+}
+```
+
+### L5-3 - repaired ALT factor NaN quality: WARN
+
+Average valid-stock coverage passes thresholds; all-NaN hk_hold months remain a signal-quality warning.
+
+```json
+{
+  "panel_dir": "E:\\Acoding\\Project\\500 improve\\data\\processed\\factor_panels_test_run_1",
+  "factors": {
+    "analyst_eps_revision": {
+      "rows": 168,
+      "date_min": "2012-01-31",
+      "date_max": "2025-12-31",
+      "test_rows": 36,
+      "nan_rate_test": 0.7481420161883737,
+      "avg_valid_stocks": 380.30555555555554,
+      "min_valid_stocks": 329,
+      "threshold": 100,
+      "zero_valid_dates": []
+    },
+    "hk_hold_chg": {
+      "rows": 168,
+      "date_min": "2012-01-31",
+      "date_max": "2025-12-31",
+      "test_rows": 36,
+      "nan_rate_test": 0.8090323767476085,
+      "avg_valid_stocks": 288.3611111111111,
+      "min_valid_stocks": 0,
+      "threshold": 50,
+      "zero_valid_dates": [
+        "2024-10-31",
+        "2024-11-29",
+        "2024-12-31",
+        "2025-01-27",
+        "2025-02-28",
+        "2025-03-31",
+        "2025-04-30",
+        "2025-05-30",
+        "2025-06-30",
+        "2025-07-31",
+        "2025-08-29",
+        "2025-09-30",
+        "2025-10-31",
+        "2025-11-28",
+        "2025-12-31"
+      ]
+    },
+    "hk_hold_ratio": {
+      "rows": 168,
+      "date_min": "2012-01-31",
+      "date_max": "2025-12-31",
+      "test_rows": 36,
+      "nan_rate_test": 0.7722590139808684,
+      "avg_valid_stocks": 343.8888888888889,
+      "min_valid_stocks": 0,
+      "threshold": 50,
+      "zero_valid_dates": [
+        "2024-08-30",
+        "2024-10-31",
+        "2024-11-29",
+        "2025-01-27",
+        "2025-02-28",
+        "2025-04-30",
+        "2025-05-30",
+        "2025-07-31",
+        "2025-08-29",
+        "2025-10-31",
+        "2025-11-28"
+      ]
+    }
+  },
+  "failures": [],
+  "warnings": [
+    "hk_hold_chg: 15 all-NaN test rows",
+    "hk_hold_ratio: 11 all-NaN test rows"
+  ]
+}
+```
+
+## L6 Gate
+
+### L6-1 - pre-test git commit gate: PENDING
+
+Working tree is dirty; make a deliberate pre-test commit before the formal test run.
+
+```json
+{
+  "expected_tag": "[TEST_SET_RUN_1]",
+  "git_status_returncode": 0,
+  "git_status_stderr": "",
+  "dirty_line_count": 73,
+  "dirty_preview": [
+    "M AGENTS.md",
+    " M CLAUDE.md",
+    " M MIGRATION_STATUS.md",
+    " M README.md",
+    " M check/0526/root_cause_report.md",
+    " M check/0526/run_stage7_stage8.py",
+    " M \"current work/5.28/discussions/factor_guide.md\"",
+    " M \"current work/5.28/plans/factor_gap_analysis.md\"",
+    " M \"current work/5.28/plans/factor_health_system.md\"",
+    " M \"current work/5.28/plans/factor_implementation_plan.md\"",
+    " M \"current work/5.28/plans/factor_optimization_plan.md\"",
+    " M \"current work/5.29/discussions/factor_library_panel.md\"",
+    " M \"current work/5.29/discussions/optimizer_diagnosis.md\"",
+    " M \"current work/5.29/discussions/session_results_analysis.md\"",
+    " M \"current work/5.29/results/5.29_research_summary.md\"",
+    " M \"current work/5.30/alpha_estimation_error_experiment_plan.md\"",
+    " M \"current work/5.30/tc_diagnosis_report.md\"",
+    " M doc/risk_register.md",
+    " M docs/FILE_GUIDE.md",
+    " M docs/FILE_MAP.md"
+  ],
+  "git_log_returncode": 0,
+  "git_log_stderr": "",
+  "latest_commit": "f2c3b5d feat: [TEST_SET_RUN_1] Ridge-48m+TopN150 测试集第1次评估",
+  "latest_commit_has_expected_tag": true
+}
+```
+
+### L6-2 - formal test pipeline run: PENDING
+
+Formal test pipeline was intentionally not executed by this inspection script.
+
+```json
+{
+  "command_to_run_after_user_approval": "python scripts/run_test_pipeline.py --run-id 1",
+  "must_not_use": [
+    "--resume-from-lock",
+    "--factor-panel-dir"
+  ],
+  "would_consume_effective_test_run": true,
+  "expected_run_dir": "E:\\Acoding\\Project\\500 improve\\runs\\test\\test_run_1__20260602_104439__rolling48_topn150_ew_hk_quarterly",
+  "expected_run_dir_exists": false
+}
+```
+
+### L6-3 - post-run artifact validation: PENDING
+
+Post-run artifacts are not expected until the formal test pipeline finishes.
+
+```json
+{
+  "expected_run_dir": "E:\\Acoding\\Project\\500 improve\\runs\\test\\test_run_1__20260602_104439__rolling48_topn150_ew_hk_quarterly",
+  "expected_outputs": {
+    "composite": "E:\\Acoding\\Project\\500 improve\\runs\\test\\test_run_1__20260602_104439__rolling48_topn150_ew_hk_quarterly\\signal\\composite.parquet",
+    "optimizer_meta": "E:\\Acoding\\Project\\500 improve\\runs\\test\\test_run_1__20260602_104439__rolling48_topn150_ew_hk_quarterly\\portfolio\\optimizer_meta.parquet",
+    "trades": "E:\\Acoding\\Project\\500 improve\\runs\\test\\test_run_1__20260602_104439__rolling48_topn150_ew_hk_quarterly\\backtest\\trades_valid.parquet",
+    "actual_weights": "E:\\Acoding\\Project\\500 improve\\runs\\test\\test_run_1__20260602_104439__rolling48_topn150_ew_hk_quarterly\\backtest\\actual_weights_valid.parquet"
+  },
+  "existing_outputs": {
+    "composite": false,
+    "optimizer_meta": false,
+    "trades": false,
+    "actual_weights": false
+  }
+}
+```
+
+### L6-4 - post-run project state updates: PENDING
+
+CLAUDE.md/test ledger/result analysis updates are intentionally deferred until a real test run completes.
+
+```json
+{
+  "updates_after_successful_run": [
+    "CLAUDE.md test-set run count",
+    "CLAUDE.md IR and hard-metric result",
+    "docs/logs/test_set_runs.json verification",
+    "current work/6.1 analysis report refresh if result differs from invalid 0.149 run"
+  ]
+}
+```

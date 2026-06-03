@@ -13,7 +13,7 @@
 | **冻结基线 IR（下限参照）** | **0.924** | frozen_baseline_icir_topn50_ew，永不晋升 |
 | **本日最优 IR（验证期）** | **1.771** | rolling48_ridge_topn50_ew，PASS 全部三项硬指标，未晋升 |
 | 已晋升主线 IR | 0.408 | baseline_expanding_ridge + QP，已注册 mainline.json |
-| 测试集剩余 | **2 次** | 权威来源：`docs/logs/test_set_runs.json` |
+| 测试集剩余 | **3 次** | 权威来源：`docs/logs/test_set_runs.json` |
 | 本日新发现的最大问题 | **QP 对所有 Ridge 信号均造成 IR 损耗（-0.17 ~ -0.43）** | TopN50 EW 在全部配置中均优于 QP |
 
 ---
@@ -240,7 +240,7 @@ piotroski_f 已是 REMOVE_CANDIDATE，但质量维度仍需覆盖。
 
 ## 七、注意事项（后续会话）
 
-1. **测试集次数**：全部实验均为 `train_valid` 范围，0 次消耗，剩余 2 次
+1. **测试集次数**：全部实验均为 `train_valid` 范围，0 次消耗，剩余 3 次
 2. **晋升条件**：rolling-48 + TopN50（IR=1.771）虽然 PASS 三项硬指标，但 **IC_IR 验证期统计不显著（p=0.110）**，晋升前需要完成稳健性检验
 3. **piotroski_f**：消融实验已确认 REMOVE_CANDIDATE，但正式移除需先更新 `final_factors.json` 再运行实验，不可直接修改现有已完成的 run
 4. **frozen_baseline**：`frozen_baseline_icir_topn50_ew`（IR=0.924）为永久参照，所有比较必须包含它

@@ -1037,7 +1037,7 @@ runs/test/test_run_1__<mainline_run_id>/
 
 要求：
 
-- 仍然最多 2 次；
+- 仍然最多 3 次；
 - 仍然必须显式 `--run-id 1/2`；
 - 仍然写 ledger；
 - 测试集产物绝不覆盖训练/验证 run。

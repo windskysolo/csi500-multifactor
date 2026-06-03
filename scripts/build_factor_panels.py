@@ -489,7 +489,7 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help=(
             "允许 end-date 超过 VALID_END 进入测试期（必须同时传 --run-id）。"
-            "测试集产物写入独立目录，受运行次数上限保护（≤ 2 次）。"
+            "测试集产物写入独立目录，受运行次数上限保护（≤ 3 次）。"
         ),
     )
     parser.add_argument(

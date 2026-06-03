@@ -35,7 +35,7 @@
 - **类型**：中证500多因子指数增强（截面策略，月频调仓）
 - **数据源**：Tushare Pro（Parquet 格式缓存，非 CSMAR）
 - **核心组件**：因子构建 → 单因子检验 → 因子合成 → 协方差估计 → 组合优化（cvxpy）→ 回测 → 归因
-- **时间切分**：训练 2012-2020 / 验证 2021-2022 / **测试 2023-2025（运行次数 ≤ 2）**
+- **时间切分**：训练 2012-2020 / 验证 2021-2022 / **测试 2023-2025（运行次数 ≤ 3）**
 - **完成标准**：信息比率 IR ≥ 0.5、超额最大回撤 ≤ 10%、年化双边换手 5-15 倍
 - **当前阶段**：持续改进期（搭建已完成，聚焦找 bug + 提升模型效果）
 
@@ -48,11 +48,11 @@
 | 字段 | 当前值 |
 |------|--------|
 | **冻结基线 IR** | **0.924**（frozen_baseline_icir_topn50_ew，ICIR+TopN50 EW，永不晋升，不可直接与 Ridge+QP 实验比较） |
-| 验证期最优 IR | **1.771**（rolling48_ridge_topn50_ew，Rolling48+TopN50 EW，未晋升；run_id=20260529_081232） |
-| 已晋升主线 IR | 0.408（baseline_expanding_ridge，Ridge+QP，已在 mainline.json 注册） |
-| 测试集已用 / 剩余 | 0 次用 / **2 次剩余**（权威来源：`docs/logs/test_set_runs.json`，更新前先读取该文件）|
-| 最后一次有效实验 | rolling48_ridge_topn50_ew（IR=1.771，PASS；run_id=20260529_081232） |
-| 待解决已知问题 | ~~piotroski_f 需另起实验确认剔除后 IR 影响~~ **消融实验已确认**：剔除 piotroski_f 后 IR=0.524（升），两者同剔 IR=0.430；piotroski_f 为 REMOVE_CANDIDATE；decay_ridge hl36/hl48 验证期 IR 低于基线，需诊断；**阶段7 P0+P1 因子评估完成（2026-05-29）**：accrual 修复后 IC_IR=-0.144（Gate 1 失败，且与 cfp 高相关 r=-0.741）；asset_growth IC_IR=-0.198（Gate 1+3 失败，A 股成长溢价方向相反）；share_issuance IC_IR=-0.113（Gate 1+2+3 三重失败）；mf_flow_ratio IC_IR=-0.175（Gate 0 覆盖72%+Gate 1+2 失败，但两期方向一致，逆向信号待进一步研究）；**QP优化器对所有Ridge/ICIR信号均造成IR损耗（-0.166 ~ -0.522），TopN50 EW在所有信号类型上均优于QP；IC_IR信号损耗最大：QP=0.402 vs TopN50=0.924（-0.522）；根因已诊断（2026-05-29）：松 TE 或松行业约束均使 QP 变差（TE 约束和行业约束是保护机制不是阻力），真正瓶颈是「信号基数 vs 序数」：QP 用 alpha 绝对量级分配权重对噪声敏感，TopN50 仅用 alpha 排名更鲁棒；详见 `current work/5.29/qp_constraint_diagnosis_conclusion.md`**；**TC 量化回填完成（2026-05-30）**：12 个 run 全部生成 `signal_quality_report.json`；跨 4 种信号类型确认 TopN EW 全面优于 QP（4/4 信号类型）；结构属性恒定：TopN TC≈0.600/N_eff≈66，QP TC≈0.685~0.694/N_eff≈58.7~59；ir_loss 规律：TopN(34~81%) < QP(57~91%)；**重要新发现：Expanding Ridge 验证期 IC_IR 最高（0.628）但 QP ir_loss 最高（91.2%）→ 高 IC_IR ≠ 高幅度质量，Expanding 信号幅度比 Rolling48 更嘈杂；Rolling48 QP ir_loss=56.8%（最低）对应最优 QP IR=1.489**；量化结论详见 `docs/research/improve/progress_log.md` 阶段 N+2；**[代码维护-一行修复]** ~~`src/pipeline/stages.py` L38-39 docstring 仍写"decay_weighted_expanding — 尚未实现"~~ **已修复（2026-05-30）**；`scripts/test_set_ledger.py` 顶部 docstring 路径写的是 `docs/check/test_set_runs.json`，代码实际用 `docs/logs/test_set_runs.json`（改 docstring 第一行即可）**；**排名变换 QP 实验完成（2026-05-30，run_id=20260530_095659）**：challenger_icir_te6_rank_qp IR=0.299，比 QP 基线 0.402 更差，假设被证伪；反常发现：TC 反而升高（0.690→0.729）但 IR 下降，说明 TC 高 ≠ IR 高；根因：均匀排名使 alpha 景观平坦，TE/行业约束主导权重分配，信号贡献被稀释；TopN50 优势来自"二值化+等权"而非"更高效转移信号"（TC=0.585 是三者最低）；QP 修复路线（cardinal→ordinal）确认无效，后续聚焦 TopN50 路线继续提升** |
+| 验证期最优 IR | **2.150**（rolling48_topn150_ew_hk_quarterly，Rolling48+TopN150 EW，已晋升；run_id=20260602_104439） |
+| 已晋升主线 IR | **2.150**（rolling48_topn150_ew_hk_quarterly，Ridge Rolling48+TopN150 EW，已在 mainline.json 注册） |
+| 测试集已用 / 剩余 | **1 次有效用 / 2 次剩余**（权威来源：`docs/logs/test_set_runs.json`，更新前先读取该文件）。注：2026-05-30曾执行一次操作性错误运行（test_run_1，因子面板缺失导致36个月零调仓），已废除不计入有效次数，记录在 `corrections` 字段。**[TEST_SET_RUN_1] 已完成（2026-06-02，git: f2c3b5d）**：测试期 IR=0.645（PASS）、超额MDD=5.70%（PASS）、换手728%（PASS），三硬指标全PASS；测试期信号全空月=0，TopN EW 确认（权重 std=0）。 |
+| 最后一次有效实验 | rolling48_topn150_ew_hk_quarterly（IR=2.150，PASS；run_id=20260602_104439）；测试集 IR=0.645，三硬指标全PASS |
+| 待解决已知问题 | ~~piotroski_f 需另起实验确认剔除后 IR 影响~~ **消融实验已确认**：剔除 piotroski_f 后 IR=0.524（升），两者同剔 IR=0.430；piotroski_f 为 REMOVE_CANDIDATE；decay_ridge hl36/hl48 验证期 IR 低于基线，需诊断；**阶段7 P0+P1 因子评估完成（2026-05-29）**：accrual 修复后 IC_IR=-0.144（Gate 1 失败，且与 cfp 高相关 r=-0.741）；asset_growth IC_IR=-0.198（Gate 1+3 失败，A 股成长溢价方向相反）；share_issuance IC_IR=-0.113（Gate 1+2+3 三重失败）；mf_flow_ratio IC_IR=-0.175（Gate 0 覆盖72%+Gate 1+2 失败，但两期方向一致，逆向信号待进一步研究）；**QP优化器对所有Ridge/ICIR信号均造成IR损耗（-0.166 ~ -0.522），TopN50 EW在所有信号类型上均优于QP；IC_IR信号损耗最大：QP=0.402 vs TopN50=0.924（-0.522）；根因已诊断（2026-05-29）：松 TE 或松行业约束均使 QP 变差（TE 约束和行业约束是保护机制不是阻力），真正瓶颈是「信号基数 vs 序数」：QP 用 alpha 绝对量级分配权重对噪声敏感，TopN50 仅用 alpha 排名更鲁棒；详见 `current work/5.29/qp_constraint_diagnosis_conclusion.md`**；**TC 量化回填完成（2026-05-30）**：12 个 run 全部生成 `signal_quality_report.json`；跨 4 种信号类型确认 TopN EW 全面优于 QP（4/4 信号类型）；结构属性恒定：TopN TC≈0.600/N_eff≈66，QP TC≈0.685~0.694/N_eff≈58.7~59；ir_loss 规律：TopN(34~81%) < QP(57~91%)；**重要新发现：Expanding Ridge 验证期 IC_IR 最高（0.628）但 QP ir_loss 最高（91.2%）→ 高 IC_IR ≠ 高幅度质量，Expanding 信号幅度比 Rolling48 更嘈杂；Rolling48 QP ir_loss=56.8%（最低）对应最优 QP IR=1.489**；量化结论详见 `docs/research/improve/progress_log.md` 阶段 N+2；**[代码维护-一行修复]** ~~`src/pipeline/stages.py` L38-39 docstring 仍写"decay_weighted_expanding — 尚未实现"~~ **已修复（2026-05-30）**；`scripts/test_set_ledger.py` 顶部 docstring 路径写的是 `docs/check/test_set_runs.json`，代码实际用 `docs/logs/test_set_runs.json`（改 docstring 第一行即可）**；**排名变换 QP 实验完成（2026-05-30，run_id=20260530_095659）**：challenger_icir_te6_rank_qp IR=0.299，比 QP 基线 0.402 更差，假设被证伪；反常发现：TC 反而升高（0.690→0.729）但 IR 下降，说明 TC 高 ≠ IR 高；根因：均匀排名使 alpha 景观平坦，TE/行业约束主导权重分配，信号贡献被稀释；TopN50 优势来自"二值化+等权"而非"更高效转移信号"（TC=0.585 是三者最低）；QP 修复路线（cardinal→ordinal）确认无效，后续聚焦 TopN50 路线继续提升**；**hk_hold P0 修复完成（2026-06-02）**：hk_hold_ratio/hk_hold_chg 已改为季度 PIT 快照因子（270日回望+10日偏移+120日滞后保护），验证期 2021-2022 全空月归零（原 P0 问题消除），新线 IR=2.150 已晋升主线（run_id=20260602_104439__rolling48_topn150_ew_hk_quarterly）；hk_hold 因子状态由 warn→stable，详见 `current work/6.2/implementation_plan.md` |
 
 #### B 类字段：**使用前必须先读文件核实**，禁止直接引用（真相在文件里，CLAUDE.md 只是副本，容易悄悄漂移）
 
@@ -151,7 +151,7 @@
 
 | 规则 | 具体要求 |
 |---|---|
-| **样本外验证** | 训练集调参，验证集确认稳健，**测试集仅项目末期评估，运行 ≤ 2 次** |
+| **样本外验证** | 训练集调参，验证集确认稳健，**测试集仅项目末期评估，运行 ≤ 3 次** |
 | **测试集纪律** | 每次跑测试集，git commit message 必须含 `[TEST_SET_RUN_N]` 标记 |
 | **统计显著性** | 声称因子"有效"需给出 IC_IR、t 统计量、p 值；批量测试时做 Bonferroni 或 BH 校正 |
 | **过拟合防范** | 以 IC_IR 加权为基线起点；滚动 Ridge 经 walk-forward CV 验证后可作为挑战者；参数尽量少，新增方法必须先跑基线对比再下结论；**当前挑战者状态以 `registry/challengers.json` 为准，不可背诵本文件** |

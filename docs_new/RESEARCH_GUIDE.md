@@ -36,7 +36,7 @@
 │       └── factor_panels/      ← 单因子 parquet（因子研究输出目标）
 ├── runs/
 │   ├── train_valid/            ← 所有训练+验证期 run 的结果
-│   └── test/                   ← 测试集 run 的结果（最多 2 次）
+│   └── test/                   ← 测试集 run 的结果（最多 3 次）
 │
 ├── registry/
 │   ├── mainline.json           ← 当前"主基线"是哪个 run
@@ -57,7 +57,7 @@
     ├── run_experiment.py       ← 运行单个实验（最常用）
     ├── compare_runs.py         ← 生成比较板
     ├── promote_run.py          ← 晋升某个 run 为主基线
-    └── run_test_pipeline.py    ← 测试集评估（最多 2 次）
+    └── run_test_pipeline.py    ← 测试集评估（最多 3 次）
 ```
 
 ---
@@ -371,7 +371,7 @@ python -m scripts.run_experiment \
 
 ---
 
-### 4.6 测试集评估（最终出结论，最多 2 次）
+### 4.6 测试集评估（最终出结论，最多 3 次）
 
 **测试集是一次性资源，用完就失去无偏性。请只在研究定型之后使用。**
 
@@ -489,5 +489,5 @@ python -m scripts.run_test_pipeline --run-id 1
 | 直接修改 `runs/` 下的任何文件 | run 目录是不可变的，修改会破坏审计追溯 |
 | 在没有 Spec 的情况下手动运行信号/组合/回测脚本 | 产物不会进 registry，无法比较 |
 | 同时改多个变量跑一个实验 | 无法判断哪个变量贡献了改善 |
-| 在训练/验证期没定型前用测试集 | 测试集只有 2 次机会，用完失去无偏性 |
+| 在训练/验证期没定型前用测试集 | 测试集只有 3 次机会，用完失去无偏性 |
 | 修改或重跑 `frozen_baseline_icir_topn50_ew` spec | 冻结基线是不可变对照锚，修改后所有历史对比失去意义 |

@@ -232,7 +232,7 @@ def _write_attribution_metadata(
         "backtest_start": str(cfg.VALID_START.date()),
         "backtest_end":   str(cfg.VALID_END.date()),
         "test_set_run_count": 0,           # 测试集（2023-2025）尚未运行
-        "test_set_remaining": 2,           # 剩余可运行次数（上限 2）
+        "test_set_remaining": 3,           # 剩余可运行次数（上限 3）
         "attribution_config": {
             "execution_assumption": "T+1 open price (F8-001)",
             "weight_normalization": "none — cash_weight = 1 - sum(w_p) (F8-002)",

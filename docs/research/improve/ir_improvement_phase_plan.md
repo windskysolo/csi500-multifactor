@@ -46,7 +46,7 @@
 - `factor_summary.csv` 只包含 39 个当前有效候选因子。
 - `final_factors.json` 的 `n_final + n_excluded = 39`。
 - 所有产物 metadata 的 `git_commit` 指向同一个最新 commit。
-- `test_set_run_count = 0`，测试集剩余次数为 2。
+- `test_set_run_count = 0`，测试集剩余次数为 3。
 - 验证期权重 `constraint_compliant=True`。
 
 如果阶段 0 不通过，不进入任何 IR 优化。

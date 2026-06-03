@@ -435,7 +435,7 @@ configs/pipelines/challenger_rolling48_calibrated_qp.py   # Ridge-48 + 纯校准
 ### 8.4 测试集纪律
 
 本计划所有实验均为 `period_scope="train_valid"`，**不消耗测试集配额**。
-当前测试集剩余 2 次，只有在某个实验晋升为主线候选后才考虑测试集评估。
+当前测试集剩余 3 次，只有在某个实验晋升为主线候选后才考虑测试集评估。
 
 ### 8.5 中间产物不在 manifest 追踪范围内（已知局限）
 

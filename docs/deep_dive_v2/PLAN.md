@@ -248,7 +248,7 @@
   - `baseline_*`：主线基线，已晋升 mainline，当前生产方案
   - `challenger_*`：挑战者，正在验证期对比的候选
   - `ablation_*`：消融实验，剔除单个因子/模块测量贡献
-  - `test_run_N`：测试集运行（≤2次，有严格纪律）
+  - `test_run_N`：测试集运行（≤3次，有严格纪律）
 - 注册表文件体系：
   - `registry/mainline.json`：已晋升方案的 run_id 和关键指标
   - `registry/challengers.json`：当前挑战者状态（含 hl24/36/48 结果）

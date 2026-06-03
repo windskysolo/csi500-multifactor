@@ -107,11 +107,9 @@ class TestHkHoldChgCoverage:
     def test_pre_connect_empty_data_returns_all_nan(self, monkeypatch):
         """
         2014-11-17 前无数据：hk_hold_chg 应全 NaN。
-        需同时 mock _all_trading_dates（_window_start 依赖它）和 load_hk_hold。
+        因子已改为季度定义，不再依赖 _all_trading_dates。
         """
-        all_dates = pd.bdate_range("2013-01-02", periods=40)
-        T = all_dates[-1]
-        monkeypatch.setattr(af, "_all_trading_dates", lambda: all_dates)
+        T = pd.Timestamp("2013-06-28")
         monkeypatch.setattr(af, "load_hk_hold",
                             lambda start, end, codes=None: pd.DataFrame())
 
@@ -119,37 +117,40 @@ class TestHkHoldChgCoverage:
         assert result.isna().all(), "无数据时 hk_hold_chg 应全 NaN"
 
     def test_chg_positive_when_ratio_increases(self, monkeypatch):
-        """ratio 从窗口起点到终点上升时，hk_hold_chg 应为正值。"""
-        all_dates = pd.bdate_range("2020-01-02", periods=40)
-        T = all_dates[-1]
-        monkeypatch.setattr(af, "_all_trading_dates", lambda: all_dates)
+        """
+        ratio 从先端快照到近端快照上升时，hk_hold_chg 应为正值。
 
+        因子已改为季度 PIT 差分定义：
+          mid_cutoff = pit_cutoff - 91天，先端 ≤ mid_cutoff，近端 > mid_cutoff。
+        数据日期必须分处两侧，否则 prior_df 为空 → NaN。
+        """
+        T = pd.Timestamp("2020-06-30")
+        # pit_cutoff = 2020-06-20；mid_cutoff = 2020-03-21
+        # 先端：2020-03-01 ≤ mid_cutoff；近端：2020-05-15 > mid_cutoff
         hk_data = _make_hk_hold([
-            {"trade_date": str(all_dates[0].date()), "ts_code": "000001.SZ",
-             "vol": 900.0, "ratio": 2.0, "exchange": "sh"},   # 起点
-            {"trade_date": str(all_dates[-1].date()), "ts_code": "000001.SZ",
-             "vol": 1200.0, "ratio": 4.5, "exchange": "sh"},  # 终点
+            {"trade_date": "2020-03-01", "ts_code": "000001.SZ",
+             "vol": 900.0,  "ratio": 2.0, "exchange": "sh"},   # 先端快照
+            {"trade_date": "2020-05-15", "ts_code": "000001.SZ",
+             "vol": 1200.0, "ratio": 4.5, "exchange": "sh"},   # 近端快照
         ])
         monkeypatch.setattr(af, "load_hk_hold",
                             lambda start, end, codes=None: hk_data)
 
         result = factor_hk_hold_chg(T, ["000001.SZ"])
-        assert not result.isna().all(), "有数据时 hk_hold_chg 不应全 NaN"
+        assert not result.isna().all(), "有双端数据时 hk_hold_chg 不应全 NaN"
         assert float(result["000001.SZ"]) == pytest.approx(4.5 - 2.0), (
-            "hk_hold_chg = ratio_T - ratio_{T-30d} = 2.5"
+            "hk_hold_chg = 近端 ratio(4.5) - 先端 ratio(2.0) = 2.5"
         )
 
     def test_chg_negative_when_ratio_declines(self, monkeypatch):
-        """ratio 从窗口起点到终点下降时，hk_hold_chg 应为负值。"""
-        all_dates = pd.bdate_range("2020-01-02", periods=40)
-        T = all_dates[-1]
-        monkeypatch.setattr(af, "_all_trading_dates", lambda: all_dates)
-
+        """ratio 从先端快照到近端快照下降时，hk_hold_chg 应为负值。"""
+        T = pd.Timestamp("2020-06-30")
+        # pit_cutoff = 2020-06-20；mid_cutoff = 2020-03-21
         hk_data = _make_hk_hold([
-            {"trade_date": str(all_dates[0].date()), "ts_code": "000001.SZ",
-             "vol": 1200.0, "ratio": 5.0, "exchange": "sh"},
-            {"trade_date": str(all_dates[-1].date()), "ts_code": "000001.SZ",
-             "vol": 900.0,  "ratio": 3.0, "exchange": "sh"},
+            {"trade_date": "2020-03-01", "ts_code": "000001.SZ",
+             "vol": 1200.0, "ratio": 5.0, "exchange": "sh"},   # 先端快照
+            {"trade_date": "2020-05-15", "ts_code": "000001.SZ",
+             "vol": 900.0,  "ratio": 3.0, "exchange": "sh"},   # 近端快照
         ])
         monkeypatch.setattr(af, "load_hk_hold",
                             lambda start, end, codes=None: hk_data)

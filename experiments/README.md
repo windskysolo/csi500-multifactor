@@ -42,5 +42,5 @@ python -m scripts.compare_runs          # 从 registry 读取，生成 reports/e
 
 ## 测试集纪律
 
-测试集运行次数以 `docs/logs/test_set_runs.json` 为权威来源。当前口径：已消耗 0 次，剩余 2 次。
+测试集运行次数以 `docs/logs/test_set_runs.json` 为权威来源。当前口径：已消耗 0 次，剩余 3 次。
 每次跑测试集，commit message 必须含 `[TEST_SET_RUN_N]` 标记。

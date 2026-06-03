@@ -429,7 +429,7 @@ python -m scripts.run_test_pipeline
 
 禁止把阶段 5 或阶段 6 扩展到 2023-2025 测试期，除非进入项目末期测试集评估，并且严格遵守：
 
-- 测试集运行次数不超过 2 次。
+- 测试集运行次数不超过 3 次。
 - git commit message 必须包含 `[TEST_SET_RUN_N]`。
 - 测试集产物必须与训练/验证产物隔离。
 
