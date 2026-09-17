@@ -21,7 +21,7 @@ Tushare 数据下载脚本 v1.1
 
 行业体系说明：
     本项目统一使用申万2021（SW2021）一级行业（31个），与 src/config.py 及
-    docs/PROJECT_PLAN_v1.1.md 保持一致。输出文件 industry_sw2021.csv。
+    docs/当前文档/01_项目治理/项目规则与决策.md 保持一致。输出文件 industry_sw2021.csv。
 
 所有模块支持断点续传：中断后重新运行同一命令，已完成的文件会自动跳过。
 """

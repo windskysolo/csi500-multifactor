@@ -20,6 +20,8 @@
 | 完成标准 | IR ≥ 0.5，超额最大回撤 ≤ 10%，年化双边换手 500%–1500% |
 | 当前主线 IR | **2.150**（验证期，rolling48_topn150_ew_hk_quarterly） |
 
+> 上表中的主线与测试集数字是截至 2026-09-17 的入口快照。操作前必须分别复核 `registry/mainline.json`、对应不可变 run 产物和 `docs/logs/test_set_runs.json`。
+
 ---
 
 ## 环境安装
@@ -75,6 +77,14 @@ python -m scripts.csv_to_parquet all
 
 `download_tushare.py` 支持断点续传，中断后重新执行同一命令即可。
 
+数据处理与面试学习请按 [数据转换与质量控制](docs/当前文档/02_学习材料/阶段02_数据转换与质量控制.md) 阅读；该文档同时记录当前质量门禁尚未闭环等已知缺陷。
+
+PIT、历史成分股与交易状态请按 [PIT、投资域与交易状态](docs/当前文档/02_学习材料/阶段03_PIT投资域与交易状态.md) 阅读。
+
+因子构建与截面预处理请按 [因子构建与预处理](docs/当前文档/02_学习材料/阶段04_因子构建与预处理.md) 阅读；其中包含当前注册因子、五步预处理、审计缺陷和面试回答框架。
+
+单因子检验与因子准入请按 [单因子检验与准入](docs/当前文档/02_学习材料/阶段05_单因子检验与准入.md) 阅读；其中解释 Rank IC、显著性与 BH、五分组、shift/decay及当前因子准入证据。
+
 ---
 
 ## 代码结构
@@ -101,7 +111,9 @@ python -m scripts.csv_to_parquet all
 │   │   └── signal_quality.py      # 信号质量报告（TC、N_eff、ir_loss）
 │   ├── signal/
 │   │   ├── combiner.py            # IC_IR 加权合成信号
-│   │   └── ridge_decay.py         # Ridge 回归信号（expanding/rolling/decay 三种模式）
+│   │   ├── ridge_combiner.py      # expanding Ridge 基类
+│   │   ├── ridge_rolling.py       # 固定窗口 Rolling Ridge
+│   │   └── ridge_decay.py         # 指数衰减 Ridge
 │   ├── portfolio/
 │   │   ├── covariance.py          # LedoitWolf 协方差估计
 │   │   └── optimizer.py           # 组合优化（QP / TopN EW / L2 Forced 三种模式）
@@ -150,23 +162,31 @@ python -m scripts.csv_to_parquet all
 │   ├── train_valid/<timestamp>__<experiment_id>/
 │   └── test/test_run_N__<mainline_run_id>/
 │
-├── reports/
+├── reports/                       # 可再生的跨 run 汇总与专项报告
 │   ├── experiment_board.csv       # 最新横向比较数据
 │   ├── experiment_board.md        # 最新横向比较 Markdown 表
-│   └── factor_evaluation/        # 单因子评价报告
+│   ├── factor_evaluation/         # 单因子评价报告
+│   └── archive/                   # 已被替代的历史报告快照
 │
 ├── data/                          # 数据目录（不进 git，symlink 到本地存储）
 │   ├── raw/                       # Tushare 原始 CSV
 │   └── processed/                 # Parquet 缓存
 │       └── factor_panels/         # 各因子面板（因子名.parquet）
 │
-├── tests/                         # 单元测试（25+ 个测试文件）
-├── docs/                          # 研究文档与决策记录
-├── current work/                  # 各阶段研究笔记与分析脚本
-├── paper/                         # 工程报告草稿
+├── tests/                         # 单元测试与架构边界测试
+├── docs/
+│   ├── 当前文档/                 # 当前治理、学习、面试和研究材料
+│   ├── 历史归档/                 # 冻结的旧文档与迁移来源
+│   ├── logs/                     # 测试集账本等治理日志
+│   └── evidence/                 # 文档审计证据
+├── check/                         # 按日期保存的阶段审计证据，不代表当前主线
+├── logs/                          # 本地运行日志（不入 Git）
+├── experiments/                   # 历史实验；legacy 仅保留历史脚本与兼容入口
+├── paper/                         # 工程报告草稿；含个人信息版本不入 Git
+├── AGENTS.md                      # AI 新会话入口、硬规则与信息导航
+├── CLAUDE.md                      # Claude 兼容入口，仅转向 AGENTS.md
 ├── requirements.txt
-├── pytest.ini
-└── CLAUDE.md                      # AI 协作规范
+└── pytest.ini
 ```
 
 ---
@@ -501,10 +521,15 @@ python -m pytest tests/ -q
 
 | 需求 | 文档 |
 |---|---|
-| 找某个文件或功能 | `docs/FILE_MAP.md` |
-| 实验完整操作流程 | `docs/RESEARCH_GUIDE.md` |
-| 各里程碑进展详情 | `docs/FILE_GUIDE.md` |
-| 参数决策依据 | `docs/PROJECT_PLAN_v1.1.md` |
-| 因子健康状态和新因子优先级 | `docs/research/factor_roadmap/factor_research_guide.md` |
-| 历史诊断结论 | `docs/research/improve/progress_log.md` |
+| AI/开发新会话入口 | `AGENTS.md`（先执行第 0 节） |
+| 项目介绍、运行入口与真实目录结构 | `README.md`（本文件） |
+| 当前全部文档入口 | `docs/当前文档/00_文档总览.md` |
+| **从头学习并逐阶段检查项目（唯一执行口径）** | `docs/当前文档/01_项目治理/学习与审计主线.md` |
+| 数据检验、处理、PIT与投资域专项学习 | `docs/当前文档/02_学习材料/` |
+| 当前源码精读 | `docs/当前文档/02_学习材料/源码精读/00_源码精读使用说明.md` |
+| 当前研究计划 | `docs/当前文档/04_研究与改进/最终业绩改进计划.md` |
+| 历史文档和旧版本 | `docs/历史归档/README.md` |
+| 参数决策依据 | `docs/当前文档/01_项目治理/项目规则与决策.md` |
+| 当前因子检验与准入 | `docs/当前文档/02_学习材料/阶段05_单因子检验与准入.md` |
+| 历史诊断结论 | `docs/历史归档/历史研究/历史改进记录/progress_log.md` |
 | 测试集计数权威来源 | `docs/logs/test_set_runs.json` |

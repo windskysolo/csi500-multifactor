@@ -107,7 +107,7 @@ def _section_header(gen_time: str, metadata: dict | None = None) -> str:
 > 生成时间：{gen_time}
 > 数据源目录：`{cfg.DATA_PROC.relative_to(_ROOT)}/`
 > 覆盖期间：验证集 {cfg.VALID_START.date()} ~ {cfg.VALID_END.date()}
-> 测试集状态：已运行 **{test_count} 次**（2023-2025），剩余可运行次数 **{test_remaining} 次**（上限 3；以 `docs/check/test_set_runs.json` 为准）。
+> 测试集状态：已运行 **{test_count} 次**（2023-2025），剩余可运行次数 **{test_remaining} 次**（上限 3；以 `docs/logs/test_set_runs.json` 为准）。
 
 ---
 """
@@ -286,7 +286,7 @@ def _section_risks(metadata: dict | None) -> str:
 
     lines.append("")
     lines.append(
-        "> 完整风险清单见 `docs/check/14_incomplete_fix_register.md`。"
+        "> 当前问题账本见 `docs/当前文档/01_项目治理/学习与审计主线.md`。"
         "发布前请确认所有 Blocker/High 已关闭或明确降级。"
     )
     lines.append("")

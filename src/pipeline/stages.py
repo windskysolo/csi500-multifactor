@@ -160,8 +160,8 @@ def _run_signal_ridge(sig, signal_dir: Path, data_proc: Path, spec, mode: str) -
     tv_panels = {k: v.loc[v.index <= cfg.VALID_END]
                  for k, v in factor_panels.items()}
 
-    from experiments.legacy.ridge_signal.ridge_combiner import RidgeCombiner
-    from experiments.legacy.ridge_rolling.rolling_combiner import RidgeRollingCombiner
+    from src.signal.ridge_combiner import RidgeCombiner
+    from src.signal.ridge_rolling import RidgeRollingCombiner
 
     if mode == "rolling":
         if not sig.window_months:

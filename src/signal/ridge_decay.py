@@ -9,7 +9,7 @@ EW-Ridge：expanding 训练窗口 + 指数衰减 sample_weight。
 
 数学等价关系（线性高斯假设下）：
   EW-Ridge(λ) ≡ RLS(λ) ≡ Bayes(λ-discount)
-  见 current work/time_varying_ridge_frameworks.md。
+  见 docs/历史归档/过程记录/2026年05月至06月工作记录/5.28/plans/time_varying_ridge_frameworks.md。
 
 使用方式（与 RidgeRollingCombiner 完全一致）：
   combiner = RidgeDecayCombiner(factor_names, half_life_months=24, ...)
@@ -24,7 +24,7 @@ import numpy as np
 import pandas as pd
 from sklearn.linear_model import Ridge
 
-from experiments.legacy.ridge_signal.ridge_combiner import RidgeCombiner
+from src.signal.ridge_combiner import RidgeCombiner
 
 log = logging.getLogger(__name__)
 

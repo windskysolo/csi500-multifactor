@@ -59,7 +59,7 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 OUTPUT_DIR          = cfg.DATA_PROC / "factor_panels"
 DIAGNOSTICS_PATH    = cfg.DATA_PROC / "factor_panel_diagnostics.parquet"
-TEST_SET_RUN_LOG    = cfg.ROOT / "docs" / "check" / "test_set_run_log.md"
+
 
 # 全部 36 个因子：21 财务（含阶段 4/5 新增 6 个）+ 15 量价（含阶段 5 新增 3 个）
 FINANCIAL_FACTORS: list[str] = [
@@ -99,7 +99,7 @@ PRICE_FACTORS: list[str] = [
 
 ALL_FACTORS: list[str] = FINANCIAL_FACTORS + PRICE_FACTORS
 
-# 备选数据因子（来自 docs/teach/data_expansion_plan/phase_plan.md 阶段5；实现在 Phase 5）
+# 备选数据因子（来自 docs/历史归档/历史研究/数据扩展计划/phase_plan.md 阶段5；实现在 Phase 5）
 # 名称已在此定义，--factor-set alternative --dry-run 可列出计划因子；
 # 实际计算实现在 src/factors/alt_factors.py（阶段5 建立）。
 ALT_FACTORS: list[str] = [
@@ -125,7 +125,7 @@ def _count_test_set_ledger_runs() -> int:
     """
     统计已登记的测试集运行次数。
 
-    权威来源为 docs/check/test_set_runs.json；历史 git 中的错误
+    权威来源为 docs/logs/test_set_runs.json；历史 git 中的错误
     [TEST_SET_RUN_N] 标签不作为运行次数来源。
     """
     return count_test_set_runs()
@@ -547,7 +547,7 @@ def main() -> None:
             log.error(
                 "--end-date %s 超过验证期边界 VALID_END=%s。"
                 "扩展到测试期必须显式传入 --allow-test-set --run-id N。"
-                "详见 docs/check/test_set_run_log.md 中的运行纪律。",
+                "详见 docs/logs/test_set_run_log.md 中的运行纪律。",
                 end_date.date(), cfg.VALID_END.date(),
             )
             sys.exit(1)

@@ -10,22 +10,22 @@
 python -m scripts.compare_runs          # 从 registry 读取，生成 reports/experiment_board.md
 ```
 
-截至 2026-05-27，主线为 `baseline_expanding_ridge_te6_lam0050`，challenger 已有 rolling36/48/60 三个完整 run。
-详见 `reports/experiment_board.md`。
+本目录不硬编码当前主线名称；文件名和历史实验结论都不能替代 registry。
+当前主线只以 `registry/mainline.json` 为准，指标以对应 `runs/train_valid/<run_id>/` 的不可变产物为准。
 
 ## 目录结构
 
 | 目录 | 内容 |
 |------|------|
-| `legacy/` | 迁移前的旧实验脚本，仅供历史对照，不再维护 |
+| `legacy/` | 迁移前的旧实验脚本；Ridge 旧路径仅保留兼容转发，正式实现已迁入 `src/signal/` |
 | `v1.0/` | 旧口径因子评估归档（历史对照） |
 | `v1.1/` | 旧验证期最优配置归档（已被新 spec/run 体系替代） |
 | `v1.2/` | 滚动窗口实验归档（已被新 run 体系替代） |
 | `notebooks/` | 探索性分析 notebook |
 | `notes/` | 研究笔记 |
 
-> **注意**：`v1.0/`、`v1.1/`、`v1.2/` 和 `legacy/` 均为历史归档，不反映当前主线状态。
-> 当前最优配置以 `registry/mainline.json` 为准，当前最优指标以 `reports/experiment_board.md` 为准。
+> **注意**：`v1.0/`、`v1.1/`、`v1.2/` 是历史归档，不反映当前主线状态。
+> `legacy/` 只保留历史脚本和兼容导入；新增生产代码不得从该目录导入实现。
 
 ## legacy/ 目录说明
 
@@ -42,5 +42,5 @@ python -m scripts.compare_runs          # 从 registry 读取，生成 reports/e
 
 ## 测试集纪律
 
-测试集运行次数以 `docs/logs/test_set_runs.json` 为权威来源。当前口径：已消耗 0 次，剩余 3 次。
+测试集运行次数只读取 `docs/logs/test_set_runs.json`；本文件不复制具体次数，避免状态漂移。
 每次跑测试集，commit message 必须含 `[TEST_SET_RUN_N]` 标记。

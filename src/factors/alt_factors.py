@@ -20,7 +20,7 @@ src/factors/alt_factors.py — 备选数据因子构建（阶段 5 实现）
 已知覆盖限制：
   - hk_hold*：2014-11-17 前无数据（沪深港通开通前）→ 全 NaN 属于预期
   - hk_hold*：2024-08-19 后北向持股改为季度披露（季末后约5个交易日公布上季度末数据），
-    因子定义已同步改为"季度 PIT 快照"，见 current work/6.2/implementation_plan.md
+    因子定义已同步改为"季度 PIT 快照"，见 docs/历史归档/过程记录/2026年05月至06月工作记录/6.2/implementation_plan.md
 
 数据依赖：
   daily_quote.parquet / hk_hold.parquet / analyst_rc_pit.parquet /

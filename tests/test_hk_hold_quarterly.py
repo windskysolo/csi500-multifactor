@@ -2,7 +2,7 @@
 tests/test_hk_hold_quarterly.py — 北向持仓季度 PIT 快照因子测试
 ===============================================================
 
-对应实施计划：current work/6.2/implementation_plan.md Step 2
+对应实施计划：docs/历史归档/过程记录/2026年05月至06月工作记录/6.2/implementation_plan.md Step 2
 
 覆盖 2026-06 修订后 factor_hk_hold_ratio / factor_hk_hold_chg 的新定义：
   - 季度 PIT 快照：pit_cutoff = T - HK_HOLD_QUARTERLY_OFFSET_DAYS(10)

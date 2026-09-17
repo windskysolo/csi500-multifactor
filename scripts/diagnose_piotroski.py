@@ -632,7 +632,7 @@ def generate_report(
         ]
     elif conclusion_code == "REMOVE_CANDIDATE":
         lines += [
-            f"1. 在 `docs/research/factor_roadmap/factor_research_guide.md` 中将 `piotroski_f` 标记为 `warn→remove`",
+            f"1. 在 `docs/当前文档/04_研究与改进/当前问题与改进路线.md` 中登记 `piotroski_f` 的 `warn→remove` 候选结论",
             f"2. **另起一次不含 `piotroski_f` 的训练/验证期实验**，确认 IR 不下降",
             f"3. 若 IR 不下降或提升，才从 `final_factors.json` 中移除",
         ]

@@ -1,10 +1,11 @@
 # 验证期回测与归因报告（自动生成）
 
-> **本报告由 `scripts/generate_backtest_report.py` 从当前 parquet 产物自动生成。**
+> **状态：HISTORICAL SNAPSHOT / 2026-05 历史生成快照，不代表当前注册主线。**
+> 本报告由 scripts/generate_backtest_report.py 从当时的公共 parquet 产物生成；重新运行生成器才会刷新。
 > 生成时间：2026-05-26 11:20 UTC
 > 数据源目录：`data\processed/`
 > 覆盖期间：验证集 2021-01-01 ~ 2022-12-31
-> 测试集状态：已运行 **0 次**（2023-2025），剩余可运行次数 **3 次**（上限 3；以 `docs/check/test_set_runs.json` 为准）。
+> 本快照中的测试集次数已过期；当前次数只读取 `docs/logs/test_set_runs.json`。
 
 ---
 ## 1. 核心回测指标

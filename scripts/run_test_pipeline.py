@@ -307,8 +307,8 @@ def _build_composite_signals_ridge(
         (composite_equal, composite_ridge)
     """
     from src import config as cfg
-    from experiments.legacy.ridge_signal.ridge_combiner import RidgeCombiner
-    from experiments.legacy.ridge_rolling.rolling_combiner import RidgeRollingCombiner
+    from src.signal.ridge_combiner import RidgeCombiner
+    from src.signal.ridge_rolling import RidgeRollingCombiner
     from src.evaluation.ic_analysis import compute_ic_series
     from src.signal.combiner import build_composite_panel, DEFAULT_WINDOW_MONTHS
 

@@ -1,7 +1,7 @@
 """
 测试集运行次数 ledger。
 
-测试集是否已使用以 `docs/check/test_set_runs.json` 的 active_runs 为准。
+测试集是否已使用以 `docs/logs/test_set_runs.json` 的 active_runs 为准。
 历史 git 中的错误 `[TEST_SET_RUN_N]` 标签不再作为运行次数来源。
 """
 
